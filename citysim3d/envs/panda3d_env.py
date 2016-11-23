@@ -42,8 +42,8 @@ class Panda3dCameraSensor(object):
         fbprops = FrameBufferProperties()
         # Request 8 RGB bits, no alpha bits, and a depth buffer.
         fbprops.setRgbColor(True)
-        fbprops.setRgbaBits(8, 8, 8, 0)
-        fbprops.setDepthBits(32)
+        fbprops.setRgbaBits(8, 8, 8, 8)
+        fbprops.setDepthBits(24)
         self.graphics_engine = GraphicsEngine(base.pipe)
 
         window_type = base.config.GetString('window-type', 'onscreen')

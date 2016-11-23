@@ -47,3 +47,4 @@ basic-shaders-only #f
 # window-type offscreen
 sync-video #f
 texture-anisotropic-degree 8
+depth-bits 24
