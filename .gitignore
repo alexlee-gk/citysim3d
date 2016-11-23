@@ -1,3 +1,6 @@
+# models
+models/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -22,7 +25,7 @@ sdist/
 var/
 *.egg-info/
 .installed.cfg
-*.egg
+#*.egg
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
