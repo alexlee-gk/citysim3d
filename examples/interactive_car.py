@@ -38,11 +38,12 @@ def main():
         # reset to random state...
         env.reset()
         state = env.get_state()
-        # ... but then set the speed to 1.0
-        state[0] = 1.0
+        # ... but then set the speed to 10.0
+        state[0] = 10.0
         env.reset(state)
 
-    key_map = dict(left=False, right=False, up=False, down=False, camera_fpv=False)
+    num_camera_modes = 3
+    key_map = dict(left=False, right=False, up=False, down=False, camera_pressed=False, camera_mode=0)
 
     def step(task):
         forward_acceleration = as_one(key_map['up']) - as_one(key_map['down'])
@@ -50,14 +51,27 @@ def main():
         action = np.array([forward_acceleration, lateral_velocity])
         env.step(action)
 
-        if key_map['camera_fpv']:
-            env.app.cam.reparentTo(env.car_node)
-            env.app.cam.setQuat((1, 0, 0, 0))
-            env.app.cam.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
-        else:
+        if key_map['camera_pressed']:
+            key_map['camera_mode'] = (key_map['camera_mode'] + 1) % num_camera_modes
+        if key_map['camera_mode'] == 0:
             env.app.cam.reparentTo(env.app.render)
             env.app.cam.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 2, np.array([1, 0, 0]))))
             env.app.cam.setPos(tuple(np.array(env.car_node.getPos()) + np.array([0., 0., 100.])))
+        elif key_map['camera_mode'] == 1:
+            if key_map['camera_pressed']:
+                tightness = 1.0
+            else:
+                tightness = 0.1
+            target_node = env.car_node
+            target_T = tf.pose_matrix(target_node.getQuat(), target_node.getPos())
+            target_camera_pos = target_T[:3, 3] + target_T[:3, :3].dot(np.array([0., -4., 3.]) * 4)
+            env.app.cam.setPos(tuple((1 - tightness) * np.array(env.app.cam.getPos()) + tightness * target_camera_pos))
+            env.app.cam.lookAt(target_node)
+        else:
+            env.app.cam.reparentTo(env.car_node)
+            env.app.cam.setQuat((1, 0, 0, 0))
+            env.app.cam.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
+        key_map['camera_pressed'] = False
         return Task.cont
 
     env.app.taskMgr.add(step, "step")
@@ -69,7 +83,6 @@ def main():
     add_instructions(env.app, 0.40, "[Up Arrow]: Accelerate the car")
     add_instructions(env.app, 0.48, "[Down Arrow]: Deccelerate the car")
     add_instructions(env.app, 0.56, "[C]: Toggle camera mode")
-    add_instructions(env.app, 0.64, "[Mouse]: Move main camera")
 
     env.app.accept('r', reset)
     env.app.accept('arrow_left', key_map.update, [[('left', True)]])
@@ -80,7 +93,7 @@ def main():
     env.app.accept('arrow_up-up', key_map.update, [[('up', False)]])
     env.app.accept('arrow_down', key_map.update, [[('down', True)]])
     env.app.accept('arrow_down-up', key_map.update, [[('down', False)]])
-    env.app.accept('c-up', lambda: key_map.update([('camera_fpv', not key_map['camera_fpv'])]))  # toggle camera_fpv key
+    env.app.accept('c-up', key_map.update, [[('camera_pressed', True)]])
 
     reset()
     env.app.run()
