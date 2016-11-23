@@ -47,16 +47,7 @@ echo /Developer/Panda3D/ >> ~/.pyenv/versions/2.7.12/lib/python2.7/site-packages
 echo /Developer/Panda3D/bin >> ~/.pyenv/versions/2.7.12/lib/python2.7/site-packages/panda3d.pth
 ```
 
-## Install Git Large File Storage
-The 3D models are stored using [Git Large File Storage](https://git-lfs.github.com/). Install it in your machine following [these instructions](https://github.com/git-lfs/git-lfs/wiki/Installation).
-
-If you already cloned the `ciysim3d` repo before installing Git LFS, you have to explicity pull again.
-```
-git lfs pull
-```
-
 ## Install CitySim3D
-If you already installed Git LFS, cloning might take a while since the 3D models will be downloaded in this step.
 ```
 git clone git@github.com:alexlee-gk/citysim3d.git
 cd citysim3d
@@ -66,4 +57,10 @@ Define the environment variable `CITYSIM3D_DIR` to be this directory and add it 
 ```
 export CITYSIM3D_DIR=path/to/citysim3d
 export PYTHONPATH=$CITYSIM3D_DIR:$PYTHONPATH
+```
+
+## Download 3D Model
+Run the `download.py` script to rsync the files from a (password-protected) remote account.
+```
+python models/download.py
 ```
