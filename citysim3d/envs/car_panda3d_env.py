@@ -57,20 +57,26 @@ class CarPanda3dEnv(Panda3dEnv):
         return self._sensor_names
 
     def _load_city(self):
-        self.city_node = self.app.loader.loadModel("levels/urban-level-02-medium.egg")
-        self.city_node.reparentTo(self.app.render)
+        try:
+            self.skybox_node = self.app.loader.loadModel("skyboxes/01-clean-day/skybox-mesh.egg")
+            self.skybox_node.reparentTo(self.app.render)
+        except IOError:
+            print("You probably only have the public models. Skipping loading file skyboxes/01-clean-day/skybox-mesh.egg")
 
-        self.skybox_node = self.app.loader.loadModel("skyboxes/01-clean-day/skybox-mesh.egg")
-        self.skybox_node.reparentTo(self.app.render)
+        try:
+            self.city_node = self.app.loader.loadModel("levels/urban-level-02-medium.egg")
+            self.city_node.reparentTo(self.app.render)
 
-        self.ambient_light = self.app.render.attachNewNode(AmbientLight('ambient_light'))
-        self.ambient_light.node().setColor((1, 1, 1, 1))
-        self.city_node.setLight(self.ambient_light)
+            self.ambient_light = self.app.render.attachNewNode(AmbientLight('ambient_light'))
+            self.ambient_light.node().setColor((1, 1, 1, 1))
+            self.city_node.setLight(self.ambient_light)
 
-        self.sun_light = self.app.render.attachNewNode(PointLight('sun_light'))
-        self.sun_light.node().setColor((.2, .2, .2, 1))
-        self.sun_light.setPos((-2506., -634., 2596.))
-        self.city_node.setLight(self.sun_light)
+            self.sun_light = self.app.render.attachNewNode(PointLight('sun_light'))
+            self.sun_light.node().setColor((.2, .2, .2, 1))
+            self.sun_light.setPos((-2506., -634., 2596.))
+            self.city_node.setLight(self.sun_light)
+        except IOError:
+            print("You probably only have the public models. Skipping loading file levels/urban-level-02-medium.egg")
 
     def _load_and_get_car_local(self, model_name):
         car_local_node = self.app.loader.loadModel(model_name)
