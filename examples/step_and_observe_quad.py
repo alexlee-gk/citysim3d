@@ -19,6 +19,7 @@ def main():
 
     num_trajs = 10
     num_steps = 100
+    done = False
     for traj_iter in range(num_trajs):
         env.reset()
         for step_iter in range(num_steps):
@@ -44,6 +45,12 @@ def main():
             key &= 255
             if key == 27 or key == ord('q'):
                 print("Pressed ESC or q, exiting")
+                done = True
+
+            if done:
+                break
+        if done:
+            break
 
 
 if __name__ == '__main__':
