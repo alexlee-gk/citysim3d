@@ -2,6 +2,8 @@
 
 ## Install Panda3D from source and link to specific python installation
 
+You can use any python installation you might already have (i.e. you don't need to use pyenv). Regardless of what python installation you use, you should make sure to replace the paths with the right ones in the sample commands below.
+
 ### Set up a new python environment using pyenv
 
 Install desired version of python 2 (e.g. 2.7.12). Make sure to use the `--enable-shared` flag to generate python shared libraries, which will later be linked to.
