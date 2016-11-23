@@ -13,8 +13,13 @@ class Panda3dEnv(Env):
         self.app = app or ShowBase()
         self.app.accept('escape', sys.exit)
 
-        self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
         self._dt = 0.1 if dt is None else dt
+
+        # setup visualization camera
+        vfov = 45
+        hfov = vfov * float(self.app.win.size[0]) / float(self.app.win.size[1])
+        self.app.camLens.setFov(hfov, vfov)
+        self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
 
     def render(self):
         self.app.cam.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 2, np.array([1, 0, 0]))))
