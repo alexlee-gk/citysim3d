@@ -14,7 +14,7 @@ loadPrcFile(os.path.expandvars('${CITYSIM3D_DIR}/config.prc'))
 
 
 def add_instructions(app, pos, msg):
-    return OnscreenText(text=msg, style=1, fg=(1, 1, 1, 1), scale=.07,
+    return OnscreenText(text=msg, style=1, fg=(1, 1, 1, 1), scale=.05,
                         shadow=(0, 0, 0, 1), parent=app.a2dTopLeft,
                         pos=(0.08, -pos - 0.04), align=TextNode.ALeft)
 
@@ -29,7 +29,12 @@ def main():
     # actions are forward acceleration and lateral velocity
     action_space = BoxSpace(low=np.array([-1.0, -1.0]),
                             high=np.array([1.0, 1.0]))
-    env = GeometricCarPanda3dEnv(action_space, sensor_names=[])  # empty sensor_names means no observations
+    car_model_names = ['camaro2', 'kia_rio_blue', 'kia_rio_red',
+                       'kia_rio_silver', 'kia_rio_white', 'kia_rio_yellow',
+                       'mazda6', 'mitsubishi_lancer_evo', 'sport']
+    env = GeometricCarPanda3dEnv(action_space,
+                                 sensor_names=[],  # empty sensor_names means no observations
+                                 model_names=car_model_names)
     # change the car's speed limit
     env.speed_offset_space.low[0] = 0.0
     env.speed_offset_space.high[0] = np.inf
@@ -76,13 +81,13 @@ def main():
 
     env.app.taskMgr.add(step, "step")
 
-    add_instructions(env.app, 0.08, "[ESC]: Quit")
-    add_instructions(env.app, 0.16, "[R]: Reset environment")
-    add_instructions(env.app, 0.24, "[Left Arrow]: Move car left")
-    add_instructions(env.app, 0.32, "[Right Arrow]: Move car right")
-    add_instructions(env.app, 0.40, "[Up Arrow]: Accelerate the car")
-    add_instructions(env.app, 0.48, "[Down Arrow]: Deccelerate the car")
-    add_instructions(env.app, 0.56, "[C]: Toggle camera mode")
+    add_instructions(env.app, 0.06, "[ESC]: Quit")
+    add_instructions(env.app, 0.12, "[R]: Reset environment")
+    add_instructions(env.app, 0.18, "[Left Arrow]: Move car left")
+    add_instructions(env.app, 0.24, "[Right Arrow]: Move car right")
+    add_instructions(env.app, 0.30, "[Up Arrow]: Accelerate the car")
+    add_instructions(env.app, 0.36, "[Down Arrow]: Decelerate the car")
+    add_instructions(env.app, 0.42, "[C]: Toggle camera mode")
 
     env.app.accept('r', reset)
     env.app.accept('arrow_left', key_map.update, [[('left', True)]])
