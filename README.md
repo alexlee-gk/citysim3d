@@ -60,7 +60,6 @@ export PYTHONPATH=$CITYSIM3D_DIR:$PYTHONPATH
 ```
 
 ## Download 3D Model
-Run the `download.py` script to rsync the files from a (password-protected) remote account.
-```
-python models/download.py
-```
+Run the `models/download_all.py` script to download all the model files. You need to have the right permissions to access these files.
+
+If you don't have the right permissions, you can run the `models/download_public.py` script to download all the models except for the city model. The city model is under [this license](https://3drt.com/license.htm).
