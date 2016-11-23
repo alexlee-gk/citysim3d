@@ -1,10 +1,12 @@
+import os
 import numpy as np
 from panda3d.core import loadPrcFile
 from citysim3d.envs import SimpleQuadPanda3dEnv
 from citysim3d.spaces import TranslationAxisAngleSpace
 
 
-loadPrcFile('config.prc')
+assert "CITYSIM3D_DIR" in os.environ
+loadPrcFile(os.path.expandvars('${CITYSIM3D_DIR}/config.prc'))
 
 
 def main():
