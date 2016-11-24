@@ -3,7 +3,7 @@
 ![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_top.gif)
 ![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_back.gif)
 
-This simulator was used in the paper [Learning Visual Servoing with Deep Features and Fitted Q-Iteration](https://openreview.net/forum?id=r1YNw6sxg).
+This simulator was used in the paper <a href="https://openreview.net/forum?id=r1YNw6sxg" target="_blank">Learning Visual Servoing with Deep Features and Fitted Q-Iteration</a>.
 
 ## Install Panda3D from source and link to specific python installation
 
@@ -36,7 +36,7 @@ git clone git@github.com:panda3d/panda3d.git
 cd panda3d
 pyenv local 2.7.12
 ```
-Replace `elif GetTarget() == 'darwin'` with `elif False` in `makepanda/makepandacore.py` so that Apple's copy of Python is not used, as described in [here](https://www.panda3d.org/forums/viewtopic.php?f=5&t=18331).
+Replace `elif GetTarget() == 'darwin'` with `elif False` in `makepanda/makepandacore.py` so that Apple's copy of Python is not used, as described in <a href="https://www.panda3d.org/forums/viewtopic.php?f=5&t=18331" target="_blank">here</a>.
 ```
 sed -i -- "s/elif GetTarget() == 'darwin'/elif False/g" makepanda/makepandacore.py
 ```
@@ -66,7 +66,17 @@ export CITYSIM3D_DIR=path/to/citysim3d
 export PYTHONPATH=$CITYSIM3D_DIR:$PYTHONPATH
 ```
 
-## Download 3D Model
+## Download the 3D models
+There are two options for getting the 3D models, depending if you have the right permissions.
+
+### Option 1
 Run the `models/download_all.py` script to download all the model files. You need to have the right permissions to access these files.
 
-If you don't have the right permissions, you can run the `models/download_public.py` script to download all the models except for the city model. The city model is under [this license](https://3drt.com/license.htm).
+### Option 2
+If you don't have the right permissions, you can run the `models/download_public.py` script to download all the models except for the city and skybox model.
+
+The city model is under <a href="https://3drt.com/license.htm" target="_blank">this license</a>. You can buy a copy of the 3D models <a href="http://3drt.com/store/environments/megacity-construction-kit.html" target="_blank">here</a> and convert these two models to Panda3D's `.egg` format:
+- `levels/urban-level-02-medium.obj` to `path/to/citysim3d/models/levels/urban-level-02-medium.egg`
+- `skyboxes/01-clean-day/skybox-mesh.3DS` to `path/to/citysim3d/models/skyboxes/01-clean-day/skybox-mesh.egg`
+
+To convert the models, we imported each file to blender and then exported the model to the `.egg` format.
