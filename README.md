@@ -1,5 +1,10 @@
 # CitySim3D
 
+![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_top.gif)
+![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_back.gif)
+
+This simulator was used in the paper [Learning Visual Servoing with Deep Features and Fitted Q-Iteration](https://openreview.net/forum?id=r1YNw6sxg).
+
 ## Install Panda3D from source and link to specific python installation
 
 You can use any python installation you might already have (i.e. you don't need to use pyenv). Regardless of what python installation you use, you should make sure to replace the paths with the right ones in the sample commands below.
