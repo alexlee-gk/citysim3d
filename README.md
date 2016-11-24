@@ -1,9 +1,18 @@
 # CitySim3D
+Simulated environments that can be used to test reinforcement learning problems involving vision.
+
+There are two main environments, both in an urban setting:
+- Car environment: the action space consists of forward acceleration and lateral velocity (parameterized with respect to the road)
+- Quadcopter environment: the action space consists of linear velocity and angular velocity
+
+Currently, neither of these use realistic physics. For better physics simulation, you can implement your own dynamics or use Panda3D's python bindings to Bullet Physics.
+
+You can get RGB and depth images from the agent's camera.
+
+This simulator was used in the paper <a href="https://openreview.net/forum?id=r1YNw6sxg" target="_blank">Learning Visual Servoing with Deep Features and Fitted Q-Iteration</a>.
 
 ![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_top.gif)
 ![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_back.gif)
-
-This simulator was used in the paper <a href="https://openreview.net/forum?id=r1YNw6sxg" target="_blank">Learning Visual Servoing with Deep Features and Fitted Q-Iteration</a>.
 
 ## Install Panda3D from source and link to specific python installation
 
@@ -30,7 +39,7 @@ echo /usr/share/panda3d >> ~/.pyenv/versions/2.7.12/lib/python2.7/site-packages/
 echo /usr/lib/x86_64-linux-gnu/panda3d >> ~/.pyenv/versions/2.7.12/lib/python2.7/site-packages/panda3d.pth
 ```
 
-### Install Panda3D in MacOS
+### Install Panda3D in MacOS Sierra
 ```
 git clone git@github.com:panda3d/panda3d.git
 cd panda3d
