@@ -10,7 +10,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                  car_action_space=None, car_model_name=None, app=None, dt=None):
         super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
-        self._sensor_names = sensor_names or ['image']
+        self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
         self.car_env_class = car_env_class or GeometricCarPanda3dEnv
         self.car_action_space = car_action_space or BoxSpace(np.array([0.0, 0.0]), np.array([0.0, 0.0]))
         self.car_model_name = car_model_name or ['camaro2']
@@ -18,11 +18,10 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             self.car_model_name = [self.car_model_name]
         self.car_env = self.car_env_class(self.car_action_space, sensor_names=[], model_names=self.car_model_name, app=self.app, dt=self.dt)
 
-        assert isinstance(self.action_space, TranslationAxisAngleSpace)
-
-        # modify the car's speed limits so that the car's speed is always a quater of the quad's maximum forward velocity
-        self.car_env.speed_offset_space.low[0] = self.action_space.high[1] / 4  # meters per second
-        self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
+        if isinstance(self.action_space, TranslationAxisAngleSpace):
+            # modify the car's speed limits so that the car's speed is always a quater of the quad's maximum forward velocity
+            self.car_env.speed_offset_space.low[0] = self.action_space.high[1] / 4  # meters per second
+            self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
         self.car_node = self.car_env.car_node
 
         self._load_quad()
@@ -83,10 +82,16 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             self.quad_prop_local_nodes.append(quad_prop_local_node)
 
     def step(self, action):
+        assert isinstance(self.action_space, TranslationAxisAngleSpace)
+
         # update the angle of the propellers (for rendering purposes)
         if self.prop_rpm:
             self.prop_angle += (self.prop_rpm * 2 * np.pi / 60) * self.dt
             self.prop_angle -= 2 * np.pi * np.floor(self.prop_angle / (2 * np.pi))
+            for quad_prop_id, quad_prop_local_node in enumerate(self.quad_prop_local_nodes):
+                is_ccw = quad_prop_id in (1, 2)
+                angle = self.prop_angle if is_ccw else -self.prop_angle
+                quad_prop_local_node.setQuat(tuple(tf.quaternion_about_axis(angle, np.array([0, 0, 1]))))
 
         car_action = self.car_env.action_space.sample()
         self.car_env.step(car_action)
@@ -153,12 +158,6 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             tuple()
 
     def render(self):
-        # update the angle of the propellers (for rendering purposes)
-        if self.prop_rpm:
-            for quad_prop_id, quad_prop_local_node in enumerate(self.quad_prop_local_nodes):
-                is_ccw = quad_prop_id in (1, 2)
-                angle = self.prop_angle if is_ccw else -self.prop_angle
-                quad_prop_local_node.setQuat(tuple(tf.quaternion_about_axis(angle, np.array([0, 0, 1]))))
         if self._first_render:
             tightness = 1.0
             self._first_render = False
