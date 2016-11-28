@@ -40,7 +40,7 @@ class Panda3dCameraSensor(object):
         winprops = WindowProperties.size(*self.size)
         winprops.setTitle('Camera Sensor')
         fbprops = FrameBufferProperties()
-        # Request 8 RGB bits, no alpha bits, and a depth buffer.
+        # Request 8 RGB bits, 8 alpha bits, and a depth buffer.
         fbprops.setRgbColor(True)
         fbprops.setRgbaBits(8, 8, 8, 8)
         fbprops.setDepthBits(24)

@@ -1,7 +1,7 @@
 import numpy as np
 from panda3d.core import AmbientLight, PointLight
 from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor, GeometricCarPanda3dEnv
-from citysim3d.spaces import BoxSpace, TranslationAxisAngleSpace
+from citysim3d.spaces import BoxSpace, TupleSpace
 import citysim3d.utils.transformations as tf
 
 
@@ -17,12 +17,11 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         if not isinstance(self.car_model_name, (tuple, list)):
             self.car_model_name = [self.car_model_name]
         self.car_env = self.car_env_class(self.car_action_space, sensor_names=[], model_names=self.car_model_name, app=self.app, dt=self.dt)
-
-        if isinstance(self.action_space, TranslationAxisAngleSpace):
-            # modify the car's speed limits so that the car's speed is always a quater of the quad's maximum forward velocity
-            self.car_env.speed_offset_space.low[0] = self.action_space.high[1] / 4  # meters per second
-            self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
         self.car_node = self.car_env.car_node
+
+        # modify the car's speed limits so that the car's speed is always a quater of the quad's maximum forward velocity
+        self.car_env.speed_offset_space.low[0] = self.action_space.high[1] / 4  # meters per second
+        self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
 
         self._load_quad()
         self.prop_angle = 0.0
@@ -43,11 +42,27 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             self.quad_camera_node.setPos(tuple(np.array([0, -4., 3.]) * -0.02))  # slightly in front of the quad
             self.quad_camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 3, np.array([1, 0, 0]))))
 
+            observation_spaces = []
+            for sensor_name in self.sensor_names:
+                if sensor_name == 'image':
+                    observation_spaces.append(BoxSpace(0, 255, shape=(480, 640), dtype=np.uint8))
+                elif sensor_name == 'depth_image':
+                    observation_spaces.append(BoxSpace(self.quad_camera_node.node().getLens().getNear(),
+                                                       self.quad_camera_node.node().getLens().getFar(),
+                                                       shape=(480, 640)))
+            self._observation_space = TupleSpace(observation_spaces)
+        else:
+            self._observation_space = None
+
         self._first_render = True
 
     @property
     def action_space(self):
         return self._action_space
+
+    @property
+    def observation_space(self):
+        return self._observation_space
 
     @property
     def sensor_names(self):
@@ -82,8 +97,6 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             self.quad_prop_local_nodes.append(quad_prop_local_node)
 
     def step(self, action):
-        assert isinstance(self.action_space, TranslationAxisAngleSpace)
-
         # update the angle of the propellers (for rendering purposes)
         if self.prop_rpm:
             self.prop_angle += (self.prop_rpm * 2 * np.pi / 60) * self.dt

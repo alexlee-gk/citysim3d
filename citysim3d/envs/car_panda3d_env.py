@@ -4,7 +4,7 @@ from collections import defaultdict
 import collada
 from panda3d.core import AmbientLight, PointLight
 from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor
-from citysim3d.spaces import BoxSpace
+from citysim3d.spaces import BoxSpace, TupleSpace
 import citysim3d.utils.transformations as tf
 
 
@@ -46,11 +46,27 @@ class CarPanda3dEnv(Panda3dEnv):
             self.car_camera_node.reparentTo(self.car_node)
             self.car_camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
 
+            observation_spaces = []
+            for sensor_name in self.sensor_names:
+                if sensor_name == 'image':
+                    observation_spaces.append(BoxSpace(0, 255, shape=(480, 640), dtype=np.uint8))
+                elif sensor_name == 'depth_image':
+                    observation_spaces.append(BoxSpace(self.car_camera_node.node().getLens().getNear(),
+                                                       self.car_camera_node.node().getLens().getFar(),
+                                                       shape=(480, 640)))
+            self._observation_space = TupleSpace(observation_spaces)
+        else:
+            self._observation_space = None
+
         self._first_render = True
 
     @property
     def action_space(self):
         return self._action_space
+
+    @property
+    def observation_space(self):
+        return self._observation_space
 
     @property
     def sensor_names(self):
