@@ -106,6 +106,9 @@ class CarPanda3dEnv(Panda3dEnv):
         if model_name in ('camaro2', 'sport'):
             ambient_color = (.1, .1, .1, 1)
             sun_light_color = (.8, .8, .8, 1)
+        elif model_name == 'mazda6':
+            ambient_color = (.1, .1, .1, 1)
+            sun_light_color = (1, 1, 1, 1)
         elif model_name == 'mitsubishi_lancer_evo':
             ambient_color = (.2, .2, .2, 1)
             sun_light_color = (1, 1, 1, 1)
