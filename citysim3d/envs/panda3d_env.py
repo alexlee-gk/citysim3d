@@ -54,7 +54,7 @@ class Panda3dCameraSensor(object):
             flags = flags | GraphicsPipe.BFRefuseWindow
 
         self.buffer = self.graphics_engine.makeOutput(
-            base.pipe, "camera sensor buffer", 0,
+            base.pipe, "camera sensor buffer", -100,
             fbprops, winprops, flags)
 
         if not color and not depth:
