@@ -37,21 +37,21 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.quad_camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth)
+            self.quad_camera_sensor = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth)
             self.quad_camera_node = self.quad_camera_sensor.cam
             self.quad_camera_node.reparentTo(self.quad_node)
             self.quad_camera_node.setPos(tuple(np.array([0, -4., 3.]) * -0.02))  # slightly in front of the quad
-            self.quad_camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 3, np.array([1, 0, 0]))))
+            self.quad_camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 6, np.array([1, 0, 0]))))
             self.quad_camera_node.setName('quad_camera')
 
             observation_spaces = []
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
-                    observation_spaces.append(BoxSpace(0, 255, shape=(480, 640), dtype=np.uint8))
+                    observation_spaces.append(BoxSpace(0, 255, shape=(480, 640, 3), dtype=np.uint8))
                 elif sensor_name == 'depth_image':
                     observation_spaces.append(BoxSpace(self.quad_camera_node.node().getLens().getNear(),
                                                        self.quad_camera_node.node().getLens().getFar(),
-                                                       shape=(480, 640)))
+                                                       shape=(480, 640, 1)))
             self._observation_space = TupleSpace(observation_spaces)
         else:
             self._observation_space = None

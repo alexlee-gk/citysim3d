@@ -74,16 +74,17 @@ class Panda3dCameraSensor(object):
             self.depth_tex = None
 
         self.cam = base.makeCamera(self.buffer, scene=base.render, camName='camera_sensor')
+        self.lens = self.cam.node().getLens()
         hfov = vfov * float(size[0]) / float(size[1])
-        self.cam.node().getLens().setFov(hfov, vfov)
-        self.cam.node().getLens().setNearFar(*near_far)
+        self.lens.setFov(hfov, vfov)
+        self.lens.setFilmSize(*size)  # this also defines the units of the focal length
+        self.lens.setNearFar(*near_far)
 
     @property
     def focal_length(self):
-        focal_length = self.size[1] / self.cam.node().getLens().getFocalLength()
         # same as
-        # self.size[0] / (2. * np.tan(np.deg2rad(self.cam.node().getLens().getHfov()) / 2.))
-        return focal_length
+        # size[1] / (2. * np.tan(np.deg2rad(lens.getVfov()) / 2.))
+        return self.lens.getFocalLength()
 
     def observe(self):
         for _ in range(self.graphics_engine.getNumWindows()):

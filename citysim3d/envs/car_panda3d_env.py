@@ -32,6 +32,8 @@ class CarPanda3dEnv(Panda3dEnv):
         self._car_local_node = None
         self._car_local_nodes = dict()
 
+        self.model_name = self.model_names[0]  # first car by default
+
         if self.sensor_names:
             color = depth = False
             for sensor_name in self.sensor_names:
@@ -41,7 +43,7 @@ class CarPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.car_camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth)
+            self.car_camera_sensor = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth)
             self.car_camera_node = self.car_camera_sensor.cam
             self.car_camera_node.reparentTo(self.car_node)
             self.car_camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
@@ -50,11 +52,11 @@ class CarPanda3dEnv(Panda3dEnv):
             observation_spaces = []
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
-                    observation_spaces.append(BoxSpace(0, 255, shape=(480, 640), dtype=np.uint8))
+                    observation_spaces.append(BoxSpace(0, 255, shape=(480, 640, 3), dtype=np.uint8))
                 elif sensor_name == 'depth_image':
                     observation_spaces.append(BoxSpace(self.car_camera_node.node().getLens().getNear(),
                                                        self.car_camera_node.node().getLens().getFar(),
-                                                       shape=(480, 640)))
+                                                       shape=(480, 640, 1)))
             self._observation_space = TupleSpace(observation_spaces)
         else:
             self._observation_space = None
