@@ -24,6 +24,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
 
         self._load_quad()
+        self.quad_node.setName('quad')
         self.prop_angle = 0.0
         self.prop_rpm = 10212
 
@@ -41,6 +42,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             self.quad_camera_node.reparentTo(self.quad_node)
             self.quad_camera_node.setPos(tuple(np.array([0, -4., 3.]) * -0.02))  # slightly in front of the quad
             self.quad_camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 3, np.array([1, 0, 0]))))
+            self.quad_camera_node.setName('quad_camera')
 
             observation_spaces = []
             for sensor_name in self.sensor_names:

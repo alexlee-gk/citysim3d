@@ -45,6 +45,7 @@ class CarPanda3dEnv(Panda3dEnv):
             self.car_camera_node = self.car_camera_sensor.cam
             self.car_camera_node.reparentTo(self.car_node)
             self.car_camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
+            self.car_camera_node.setName('car_camera')
 
             observation_spaces = []
             for sensor_name in self.sensor_names:
