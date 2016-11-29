@@ -113,7 +113,7 @@ def main():
                 tightness = 0.1
             if key_map['camera_mode'] == 1:
                 target_node = env.car_node
-                offset = np.array([0., -4., 3.]) * 4
+                offset = np.array([0., -4., 3.]) * 3
             else:
                 target_node = env.quad_node
                 offset = np.array([0., -4., 3.]) * .5
