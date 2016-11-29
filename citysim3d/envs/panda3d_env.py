@@ -12,6 +12,7 @@ class Panda3dEnv(Env):
     def __init__(self, app=None, dt=None):
         self.app = app or ShowBase()
         self.app.accept('escape', sys.exit)
+        self.root_node = self.app.render
 
         self._dt = 0.1 if dt is None else dt
 
