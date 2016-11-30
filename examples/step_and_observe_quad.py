@@ -24,8 +24,7 @@ def main():
         env.reset()
         for step_iter in range(num_steps):
             action = action_space.sample()
-            env.step(action)
-            observations = env.observe()
+            observations, _, _, _ = env.step(action)
             image, depth_image = observations
 
             # convert BGR image to RGB image

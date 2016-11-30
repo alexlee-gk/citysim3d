@@ -57,7 +57,10 @@ class CarPanda3dEnv(Panda3dEnv):
                     observation_spaces.append(BoxSpace(self.car_camera_node.node().getLens().getNear(),
                                                        self.car_camera_node.node().getLens().getFar(),
                                                        shape=(480, 640, 1)))
-            self._observation_space = TupleSpace(observation_spaces)
+            if len(self.sensor_names) == 1:
+                self._observation_space, = observation_spaces
+            else:
+                self._observation_space = TupleSpace(observation_spaces)
         else:
             self._observation_space = None
 
@@ -169,9 +172,12 @@ class CarPanda3dEnv(Panda3dEnv):
 
     def observe(self):
         if self.sensor_names:
-            return self.car_camera_sensor.observe()
+            obs = self.camera_sensor.observe()
+            if len(self.sensor_names) == 1:
+                obs, = obs
+            return obs
         else:
-            return tuple()
+            return None
 
     def render(self):
         if self._first_render:
@@ -222,21 +228,23 @@ class StraightCarPanda3dEnv(CarPanda3dEnv):
         self.lane_offset += lateral_velocity * self.dt
         self.straight_dist += self.speed * self.dt
         self.car_node.setPos(tuple(self.position))
-        return action
+        return self.observe(), None, False, dict()
+
+    def reset(self):
+        self._first_render = True
+        speed, lane_offset = self.speed_offset_space.sample()
+        straight_dist = self.dist_space.sample()
+        model_name_ind = np.random.randint(0, len(self.model_names))
+        state = speed, lane_offset, straight_dist, model_name_ind
+        self.set_state(state)
 
     def get_state(self):
         model_name_ind = self.model_names.index(self.model_name)
         return np.array([self.speed, self.lane_offset, self.straight_dist, model_name_ind])
 
-    def reset(self, state=None):
-        self._first_render = True
-        if state is None:
-            speed, lane_offset = self.speed_offset_space.sample()
-            straight_dist = self.dist_space.sample()
-            model_name_ind = np.random.randint(0, len(self.model_names))
-        else:
-            speed, lane_offset, straight_dist, model_name_ind = state
-            model_name_ind = int(model_name_ind)
+    def set_state(self, state):
+        speed, lane_offset, straight_dist, model_name_ind = state
+        model_name_ind = int(model_name_ind)
         self.speed, self.lane_offset, self.straight_dist = speed, lane_offset, straight_dist
         self.model_name = self.model_names[model_name_ind]
         self.car_node.setPos(tuple(self.position))
@@ -398,22 +406,25 @@ class SimpleGeometricCarPanda3dEnv(CarPanda3dEnv):
                 self._start_ind, self._end_ind = \
                     self._end_ind, self._next_ind(self._start_ind, self._end_ind)
         self.car_node.setPosQuat(*self.pos_quat)
+        return self.observe(), None, False, dict()
+
+    def reset(self):
+        self._first_render = True
+        speed, lane_offset = self.speed_offset_space.sample()
+        self._start_ind, self._end_ind = self.sample_vertex_inds()
+        straight_dist = np.random.uniform(0.0, self.max_straight_dist)
+        model_name_ind = np.random.randint(0, len(self.model_names))
+        state = speed, lane_offset, straight_dist, start_ind, end_ind, model_name_ind
+        self.set_state(state)
 
     def get_state(self):
         model_name_ind = self.model_names.index(self.model_name)
         return np.array([self.speed, self.lane_offset, self.straight_dist, self._start_ind, self._end_ind, model_name_ind])
 
-    def reset(self, state=None):
-        self._first_render = True
-        if state is None:
-            speed, lane_offset = self.speed_offset_space.sample()
-            self._start_ind, self._end_ind = self.sample_vertex_inds()
-            straight_dist = np.random.uniform(0.0, self.max_straight_dist)
-            model_name_ind = np.random.randint(0, len(self.model_names))
-        else:
-            speed, lane_offset, straight_dist, start_ind, end_ind, model_name_ind = state
-            self._start_ind, self._end_ind = int(start_ind), int(end_ind)
-            model_name_ind = int(model_name_ind)
+    def set_state(self, state):
+        speed, lane_offset, straight_dist, start_ind, end_ind, model_name_ind = state
+        self._start_ind, self._end_ind = int(start_ind), int(end_ind)
+        model_name_ind = int(model_name_ind)
         self.speed, self.lane_offset, self.straight_dist = speed, lane_offset, straight_dist
         self.model_name = self.model_names[model_name_ind]
         self.car_node.setPosQuat(*self.pos_quat)
@@ -626,6 +637,17 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
                     self._middle_ind = self._end_ind
                     self._end_ind = self._next_ind(self._start_ind, self._middle_ind)
         self.car_node.setPosQuat(*self.pos_quat)
+        return self.observe(), None, False, dict()
+
+    def reset(self):
+        self._first_render = True
+        speed, lane_offset = self.speed_offset_space.sample()
+        self._start_ind, self._middle_ind, self._end_ind = self.sample_vertex_inds()
+        straight_dist = np.random.uniform(0.0, self.max_straight_dist)  # distance along current edge
+        turn_angle = None  # angle along current curve (defined by two adjacent edges)
+        model_name_ind = np.random.randint(0, len(self.model_names))
+        state = speed, lane_offset, straight_dist, turn_angle, self._start_ind, self._middle_ind, self._end_ind, model_name_ind
+        self.set_state(state)
 
     def get_state(self):
         # convert None to -1 so that the state is a numeric array (as opposed to object array)
@@ -635,18 +657,10 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
         return np.array([self.speed, self.lane_offset, straight_dist, turn_angle,
                          self._start_ind, self._middle_ind, self._end_ind, model_name_ind])
 
-    def reset(self, state=None):
-        self._first_render = True
-        if state is None:
-            speed, lane_offset = self.speed_offset_space.sample()
-            self._start_ind, self._middle_ind, self._end_ind = self.sample_vertex_inds()
-            straight_dist = np.random.uniform(0.0, self.max_straight_dist)  # distance along current edge
-            turn_angle = None  # angle along current curve (defined by two adjacent edges)
-            model_name_ind = np.random.randint(0, len(self.model_names))
-        else:
-            speed, lane_offset, straight_dist, turn_angle, start_ind, middle_ind, end_ind, model_name_ind = state
-            self._start_ind, self._middle_ind, self._end_ind = int(start_ind), int(middle_ind), int(end_ind)
-            model_name_ind = int(model_name_ind)
+    def set_state(self, state):
+        speed, lane_offset, straight_dist, turn_angle, start_ind, middle_ind, end_ind, model_name_ind = state
+        self._start_ind, self._middle_ind, self._end_ind = int(start_ind), int(middle_ind), int(end_ind)
+        model_name_ind = int(model_name_ind)
         # convert -1 to None
         if straight_dist == -1:
             straight_dist = None

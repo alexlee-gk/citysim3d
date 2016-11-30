@@ -33,3 +33,6 @@ class TupleSpace(Space):
 
     def __eq__(self, other):
         return all([(space == other_space) for (space, other_space) in zip(self.spaces, other.spaces)])
+
+
+Tuple = TupleSpace

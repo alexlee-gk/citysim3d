@@ -52,7 +52,10 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     observation_spaces.append(BoxSpace(self.quad_camera_node.node().getLens().getNear(),
                                                        self.quad_camera_node.node().getLens().getFar(),
                                                        shape=(480, 640, 1)))
-            self._observation_space = TupleSpace(observation_spaces)
+            if len(self.sensor_names) == 1:
+                self._observation_space, = observation_spaces
+            else:
+                self._observation_space = TupleSpace(observation_spaces)
         else:
             self._observation_space = None
 
@@ -117,7 +120,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
         linear_vel, angular_vel = np.split(action, [3])
         if angular_vel.shape == (1,):
-            angular_vel = angular_vel * self.action_space.axis
+            angular_vel = angular_vel * self._action_space.axis
 
         # compute next state
         quad_T = tf.pose_matrix(self.quad_node.getQuat(), self.quad_node.getPos())
@@ -132,9 +135,31 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
         linear_vel, angular_vel = np.split(tf.position_axis_angle_from_matrix(quad_to_next_quad_T) / self.dt, [3])
         # project angular_vel onto the axis
-        if self.action_space.axis is not None:
-            angular_vel = angular_vel.dot(self.action_space.axis)
+        if self._action_space.axis is not None:
+            angular_vel = angular_vel.dot(self._action_space.axis)
         action[:] = np.append(linear_vel, angular_vel)
+
+        return self.observe(), None, False, dict()
+
+    def reset(self):
+        self._first_render = True
+        self.car_env.reset()
+        # set the position of the quad to be behind the car
+        car_T = tf.pose_matrix(self.car_node.getQuat(), self.car_node.getPos())
+        quad_pos = car_T[:3, 3] + car_T[:3, :3].dot(np.array([0., -4., 3.]) * 4)
+        # set the rotation of the quad to be the rotation of the car projected so that the z-axis is up
+        axis = np.cross(car_T[:3, 2], np.array([0, 0, 1]))
+        angle = tf.angle_between_vectors(car_T[:3, 2], np.array([0, 0, 1]))
+        if np.isclose(angle, 0.0):
+            project_T = np.eye(4)
+        else:
+            project_T = tf.rotation_matrix(angle, axis)
+        quad_T = project_T.dot(car_T)
+        quad_T[:3, 3] = quad_pos
+        quad_state = tf.position_axis_angle_from_matrix(quad_T)
+        car_state = self.car_env.get_state()
+        state = np.concatenate([quad_state, car_state])
+        self.set_state(state)
 
     def get_state(self):
         quad_T = tf.pose_matrix(self.quad_node.getQuat(), self.quad_node.getPos())
@@ -142,35 +167,22 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         car_state = self.car_env.get_state()
         return np.concatenate([quad_state, car_state])
 
-    def reset(self, state=None):
-        self._first_render = True
-        if state is None:
-            self.car_env.reset(state=None)
-            # set the position of the quad to be behind the car
-            car_T = tf.pose_matrix(self.car_node.getQuat(), self.car_node.getPos())
-            quad_pos = car_T[:3, 3] + car_T[:3, :3].dot(np.array([0., -4., 3.]) * 4)
-            # set the rotation of the quad to be the rotation of the car projected so that the z-axis is up
-            axis = np.cross(car_T[:3, 2], np.array([0, 0, 1]))
-            angle = tf.angle_between_vectors(car_T[:3, 2], np.array([0, 0, 1]))
-            if np.isclose(angle, 0.0):
-                project_T = np.eye(4)
-            else:
-                project_T = tf.rotation_matrix(angle, axis)
-            quad_T = project_T.dot(car_T)
-            quad_T[:3, 3] = quad_pos
-        else:
-            quad_state, car_state = np.split(state, [6])
-            self.car_env.reset(car_state)
-            quad_T = tf.position_axis_angle_matrix(quad_state)
+    def set_state(self, state):
+        quad_state, car_state = np.split(state, [6])
+        self.car_env.set_state(car_state)
+        quad_T = tf.position_axis_angle_matrix(quad_state)
         quad_pos = quad_T[:3, 3]
         quad_quat = tf.quaternion_from_matrix(quad_T[:3, :3])
         self.quad_node.setPosQuat(tuple(quad_pos), tuple(quad_quat))
 
     def observe(self):
         if self.sensor_names:
-            return self.quad_camera_sensor.observe()
+            obs = self.camera_sensor.observe()
+            if len(self.sensor_names) == 1:
+                obs, = obs
+            return obs
         else:
-            tuple()
+            return None
 
     def render(self):
         if self._first_render:

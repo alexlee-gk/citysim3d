@@ -25,7 +25,7 @@ def make_bounds(lens, scale_size=None, crop_size=None):
 
     film_size = lens.getFilmSize()
     scale_size = scale_size or 1.0
-    crop_size = crop_size or film_size
+    crop_size = tuple(crop_size) or film_size
     ll = Point2(-crop_size[0] / scale_size / film_size[0], -crop_size[1] / scale_size / film_size[1])
     lr = Point2(+crop_size[0] / scale_size / film_size[0], -crop_size[1] / scale_size / film_size[1])
     ul = Point2(-crop_size[0] / scale_size / film_size[0], +crop_size[1] / scale_size / film_size[1])

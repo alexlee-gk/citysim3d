@@ -7,11 +7,30 @@ class Env(object):
 
         Args:
             action: numpy array, which should be contained in the action space
-                or be clipped by the action space.
+                or be clippable by the action space.
 
-        The action is modified in-place with the action that was actually
-        taken. For example, this could happen if the action is not contained
-        in the action space or if applying it leads to an invalid state.
+        Returns:
+            observation (object): agent's observation of the current environment.
+            reward (float) : amount of reward returned after previous action.
+            done (boolean): whether the episode has ended, in which case further step() calls will return undefined results.
+            info (dict): contains auxiliary diagnostic information (helpful for debugging, and sometimes learning).
+
+        Note:
+            The action is modified in-place with the action that was actually
+            taken. For example, this could happen if the action is not contained
+            in the action space or if applying it leads to an invalid state.
+        """
+        raise NotImplementedError
+
+    def reset(self):
+        """
+        Resets the state of the environment and returns an initial observation
+
+        The environment is reset to an arbitrary state (which may be chosen at
+        random).
+
+        Returns:
+            observation: the initial observation of the environment.
         """
         raise NotImplementedError
 
@@ -21,43 +40,32 @@ class Env(object):
 
         Returns:
             a numpy array.
+        """
+        raise NotImplementedError
+
+    def set_state(self, state):
+        """
+        Sets the state of the environment
+
+        Args:
+            state: numpy array.
 
         Note:
-            Resetting the environment with the current state should not affect
-            the state of the environment.
+            Setting the state of the environment to the current state should
+            not affect the state of the environment.
 
         Example:
 
             >>> state = self.get_state()
-            >>> self.reset(state)
+            >>> self.set_state(state)
             >>> assert np.allclose(state, self.get_state())
 
         """
-        raise NotImplementedError
-
-    def reset(self, state=None):
-        """
-        Resets the state of the environment
-
-        Args:
-            state: numpy array. If it is not specified, the environment is
-                reset to an arbitrary state (which may be chosen at random).
-        """
-        raise NotImplementedError
-
-    def observe(self):
-        """
-        Returns a tuple of observations even if there is only one observation.
-
-        Returns:
-            a tuple of observations, where each observations is a numpy array,
-            and the number of observations should match the number of
-            sensor_names. The observations should be contained in the
-            observation space.
-        """
-        raise NotImplementedError
 
     def render(self):
+        pass
+
+    def close(self):
         pass
 
     @property
@@ -71,12 +79,5 @@ class Env(object):
     def observation_space(self):
         """
         Returns a Space object
-        """
-        raise NotImplementedError
-
-    @property
-    def sensor_names(self):
-        """
-        Returns a list of strings
         """
         raise NotImplementedError

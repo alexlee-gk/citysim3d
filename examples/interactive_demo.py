@@ -68,16 +68,18 @@ class CustomSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         tightness = 0.1
         self.quad_node.setPosQuat(tuple((1 - tightness) * np.array(self.quad_node.getPos()) + tightness * quad_pos), tuple(quad_quat))
 
-    def reset(self, state=None):
+        return self.observe(), None, False, dict()
+
+    def reset(self):
         """
-        Same as SimpleQuadPanda3dEnv.step except that the car's speed is
+        Same as SimpleQuadPanda3dEnv.reset except that the car's speed is
         always set to 10.0"""
         # reset to given or random state...
-        super(CustomSimpleQuadPanda3dEnv, self).reset(state=state)
+        super(CustomSimpleQuadPanda3dEnv, self).reset()
         state = self.car_env.get_state()
         # ... but then set the car's speed to 10.0
         state[0] = 10.0
-        self.car_env.reset(state)
+        self.car_env.set_state(state)
 
 
 def main():
