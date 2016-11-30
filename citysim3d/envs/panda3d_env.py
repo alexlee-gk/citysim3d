@@ -36,7 +36,7 @@ class Panda3dEnv(Env):
 
 
 class Panda3dCameraSensor(object):
-    def __init__(self, base, color=True, depth=False, size=(640, 480), near_far=(0.01, 10000.0), vfov=45):
+    def __init__(self, base, color=True, depth=False, size=(640, 480), near_far=(0.01, 10000.0), hfov=60):
         self.size = size
         winprops = WindowProperties.size(*self.size)
         winprops.setTitle('Camera Sensor')
@@ -75,8 +75,7 @@ class Panda3dCameraSensor(object):
 
         self.cam = base.makeCamera(self.buffer, scene=base.render, camName='camera_sensor')
         self.lens = self.cam.node().getLens()
-        hfov = vfov * float(size[0]) / float(size[1])
-        self.lens.setFov(hfov, vfov)
+        self.lens.setFov(hfov)
         self.lens.setFilmSize(*size)  # this also defines the units of the focal length
         self.lens.setNearFar(*near_far)
 
