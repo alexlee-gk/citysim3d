@@ -23,11 +23,13 @@ def main():
     parser.add_argument('--use_3d_pol', action='store_true', help='use policy that minimizes the error of 3d points (as opposed to projected 2d points)')
     parser.add_argument('--lambda_', '--lambda', type=float, default=1.0)
     parser.add_argument('--interaction_matrix_type', '--inter_mat_type', type=str, choices=('target', 'current', 'both'), default=None)
-    parser.add_argument('--num_trajs', '-n', type=int, default=10, metavar='N', help='number of trajectories')
+    parser.add_argument('--num_trajs', '-n', type=int, default=100, metavar='N', help='number of trajectories')
     parser.add_argument('--num_steps', '-t', type=int, default=100, metavar='T', help='maximum number of time steps per trajectory')
     parser.add_argument('--visualize', '-v', type=int, default=1)
     parser.add_argument('--reset_states_fname', type=str)
     parser.add_argument('--gamma', type=float, default=0.9)
+    parser.add_argument('--verbose', action='store_true')
+    parser.add_argument('--output_fname', '-o', type=str)
     args = parser.parse_args()
 
     # check parsing
@@ -81,13 +83,16 @@ def main():
     else:
         pol = PointBasedServoingPolicy(env, lambda_=args.lambda_, interaction_matrix_type=args.interaction_matrix_type)
 
-    errors_header_format = '{:>30}{:>15}'
-    errors_row_format = '{:>30}{:>15.4f}'
-    print(errors_header_format.format('(traj_iter, step_iter)', 'reward'))
+    np.random.seed(7)
+    if args.verbose:
+        errors_header_format = '{:>30}{:>15}'
+        errors_row_format = '{:>30}{:>15.4f}'
+        print(errors_header_format.format('(traj_iter, step_iter)', 'reward'))
     done = False
     esd_rewards = []
-    for traj_iter, reset_state in enumerate(reset_states):
-        print('=' * 45)
+    for traj_iter, reset_state in zip(range(args.num_trajs), reset_states):  # whichever is shorter
+        if args.verbose:
+            print('=' * 45)
         obs = env.reset(reset_state)
         rewards = []
         for step_iter in range(args.num_steps):
@@ -136,7 +141,8 @@ def main():
 
                 obs, reward, epsisode_done, _ = env.step(action)
                 rewards.append(reward)
-                print(errors_row_format.format(str((traj_iter, step_iter)), reward))
+                if args.verbose:
+                    print(errors_row_format.format(str((traj_iter, step_iter)), reward))
                 if epsisode_done:
                     break
                 if done:
@@ -144,13 +150,22 @@ def main():
             except KeyboardInterrupt:
                 break
         esd_reward = np.array(rewards).dot(args.gamma ** np.arange(len(rewards)))
-        print('-' * 45)
-        print(errors_row_format.format('esd_rewards', esd_reward))
+        if args.verbose:
+            print('-' * 45)
+            print(errors_row_format.format('esd_rewards', esd_reward))
         esd_rewards.append(esd_reward)
         if done:
             break
-    print('=' * 45)
-    print(errors_row_format.format('mean esd_rewards', np.mean(esd_reward)))
+    if args.verbose:
+        print('=' * 45)
+        print(errors_row_format.format('mean esd_rewards', np.mean(esd_rewards)))
+
+    if args.output_fname:
+        import csv
+        with open(args.output_fname, 'ab') as csvfile:
+            writer = csv.writer(csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow([str(args.lambda_), str(np.mean(esd_rewards))] + [str(esd_reward) for esd_reward in esd_rewards])
+
 
 if __name__ == '__main__':
     main()
