@@ -80,6 +80,7 @@ class CustomSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         # ... but then set the car's speed to 10.0
         state[0] = 10.0
         self.car_env.set_state(state)
+        return self.observe()
 
 
 def main():
