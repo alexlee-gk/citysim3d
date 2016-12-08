@@ -56,9 +56,9 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
             from cv2.xfeatures2d import SIFT_create, SURF_create
             from cv2 import ORB_create
         else:
-            SIFT_create = cv2.SIFT()
-            SURF_create = cv2.SURF()
-            ORB_create = cv2.ORB()
+            SIFT_create = cv2.SIFT
+            SURF_create = cv2.SURF
+            ORB_create = cv2.ORB
         if self.feature_type == 'sift':
             self._feature_extractor = SIFT_create()
         elif self.feature_type == 'surf':
