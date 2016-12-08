@@ -55,6 +55,9 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         if cv2.__version__.split('.')[0] == '3':
             from cv2.xfeatures2d import SIFT_create, SURF_create
             from cv2 import ORB_create
+            if self.feature_type == 'orb':
+                # https://github.com/opencv/opencv/issues/6081
+                cv2.ocl.setUseOpenCL(False)
         else:
             SIFT_create = cv2.SIFT
             SURF_create = cv2.SURF
