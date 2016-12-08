@@ -123,9 +123,6 @@ def main():
                         for point_xy, target_point_xy in zip(points_xy, target_points_xy):
                             cv2.circle(vis_image, tuple(target_point_xy + offset_xy), 4, (0, 255, 0), 1)
                             cv2.line(vis_image, tuple(point_xy), tuple(target_point_xy + offset_xy), (0, 0, 255), 1)
-                        scaled_vis_image = np.empty((vis_image.shape[0] // 2, vis_image.shape[1] // 2) + vis_image.shape[2:], dtype=vis_image.dtype)
-                        cv2.resize(vis_image, (0, 0), scaled_vis_image, fx=0.5, fy=0.5)
-                        vis_image = scaled_vis_image
 
                     vis_image = cv2.cvtColor(vis_image, cv2.COLOR_RGB2BGR)
                     cv2.imshow("image", vis_image)
