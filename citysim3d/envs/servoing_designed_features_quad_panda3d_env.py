@@ -51,13 +51,20 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
             cam.reparentTo(self.camera_sensor.cam)
 
         self.filter_features = True if filter_features is None else False
-        self._feature_type = None or 'sift'
+        self._feature_type = feature_type or 'sift'
+        if cv2.__version__.split('.')[0] == 3:
+            from cv2.xfeatures2d import SIFT_create, SURF_create
+            from cv2 import ORB_create
+        else:
+            SIFT_create = cv2.SIFT()
+            SURF_create = cv2.SURF()
+            ORB_create = cv2.ORB()
         if self.feature_type == 'sift':
-            self._feature_extractor = cv2.ORB()
+            self._feature_extractor = SIFT_create()
         elif self.feature_type == 'surf':
-            self._feature_extractor = cv2.SURF()
+            self._feature_extractor = SURF_create()
         elif self.feature_type == 'orb':
-            self._feature_extractor = cv2.ORB()
+            self._feature_extractor = ORB_create()
         else:
             raise ValueError("Unknown feature extractor %s" % self.feature_type)
         if self.feature_type == 'orb':

@@ -6,7 +6,7 @@ import cv2
 from panda3d.core import loadPrcFile
 from citysim3d.spaces import TranslationAxisAngleSpace
 from citysim3d.envs import BboxSimpleQuadPanda3dEnv, Bbox3dSimpleQuadPanda3dEnv, ServoingDesignedFeaturesSimpleQuadPanda3dEnv
-from citysim3d.envs import ServoingEnv
+from citysim3d.envs import ServoingEnv, NormalizedEnv
 from citysim3d.policies import PointBasedServoingPolicy, Point3dBasedServoingPolicy
 import citysim3d.utils.panda3d_util as putil
 
@@ -77,6 +77,7 @@ def main():
                                                            car_model_name=car_model_name)
     else:
         raise ValueError('Invalid environment option %s' % args.env)
+    env = NormalizedEnv(env)
 
     if args.use_3d_pol:
         pol = Point3dBasedServoingPolicy(env, lambda_=args.lambda_)
