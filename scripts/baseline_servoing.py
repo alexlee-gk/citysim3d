@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--feature_type', type=str, choices=('sift', 'surf', 'orb'), help='[default=sift] features to use for the hand-designed feature environment.')
     parser.add_argument('--filter_features', type=int, help='[default=1] whether to filter out feature key points based on ground truth information for the hand-designed feature environment.')
     parser.add_argument('--use_3d_pol', action='store_true', help='use policy that minimizes the error of 3d points (as opposed to projected 2d points)')
+    parser.add_argument('--use_car_dynamics', '--use_car_dyn', action='store_true')
     parser.add_argument('--lambda_', '--lambda', type=float, default=1.0)
     parser.add_argument('--interaction_matrix_type', '--inter_mat_type', type=str, choices=('target', 'current', 'both'), default=None)
     parser.add_argument('--num_trajs', '-n', type=int, default=100, metavar='N', help='number of trajectories')
@@ -80,9 +81,9 @@ def main():
     env = NormalizedEnv(env)
 
     if args.use_3d_pol:
-        pol = Point3dBasedServoingPolicy(env, lambda_=args.lambda_)
+        pol = Point3dBasedServoingPolicy(env, lambda_=args.lambda_, use_car_dynamics=args.use_car_dynamics)
     else:
-        pol = PointBasedServoingPolicy(env, lambda_=args.lambda_, interaction_matrix_type=args.interaction_matrix_type)
+        pol = PointBasedServoingPolicy(env, lambda_=args.lambda_, interaction_matrix_type=args.interaction_matrix_type, use_car_dynamics=args.use_car_dynamics)
 
     np.random.seed(7)
     if args.verbose:

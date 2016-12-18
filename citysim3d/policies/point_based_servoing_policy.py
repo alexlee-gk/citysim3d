@@ -30,7 +30,7 @@ def XYZ_to_xzY(XYZ):
 
 
 class PointBasedServoingPolicy(object):
-    def __init__(self, env, lambda_=1.0, interaction_matrix_type=None):
+    def __init__(self, env, lambda_=1.0, interaction_matrix_type=None, use_car_dynamics=False):
         """
         Args:
             interaction_matrix_type: 'target', 'current' or 'both'. Indicates
@@ -41,11 +41,27 @@ class PointBasedServoingPolicy(object):
         self.env = env
         self.lambda_ = lambda_
         self.interaction_matrix_type = interaction_matrix_type or 'both'
+        self.use_car_dynamics = use_car_dynamics
 
     def act(self, obs):
         points_XYZ = obs[0]
         points_xzY = XYZ_to_xzY(points_XYZ)
-        s = np.concatenate(points_xzY[:, :2])
+
+        if self.use_car_dynamics:
+            # apply zero action to observe changes that are independent from the action. then, restore states.
+            random_state = np.random.get_state()
+            state = self.env.get_state()
+            action = np.zeros(self.env.action_space.shape)
+            obs, _, _, _ = self.env.step(action)
+            next_points_XYZ = obs[0]
+            if next_points_XYZ is None:
+                next_points_XYZ = points_XYZ
+            next_points_xzY = XYZ_to_xzY(next_points_XYZ)
+            s = np.concatenate(next_points_xzY[:, :2])
+            self.env.set_state(state)
+            np.random.set_state(random_state)
+        else:
+            s = np.concatenate(points_xzY[:, :2])
 
         target_points_XYZ = obs[len(obs) // 2]
         target_points_xzY = XYZ_to_xzY(target_points_XYZ)

@@ -10,16 +10,31 @@ def get_interaction_matrix_XYZ(X, Y, Z):
 
 
 class Point3dBasedServoingPolicy(PointBasedServoingPolicy):
-    def __init__(self, env, lambda_=1.0):
+    def __init__(self, env, lambda_=1.0, use_car_dynamics=False):
         self.env = env
         self.lambda_ = lambda_
+        self.use_car_dynamics = use_car_dynamics
 
     def act(self, obs):
         points_XYZ = obs[0]
         target_points_XYZ = obs[len(obs) // 2]
 
-        s = np.concatenate(points_XYZ)
         s_target = np.concatenate(target_points_XYZ)
+
+        if self.use_car_dynamics:
+            # apply zero action to observe changes that are independent from the action. then, restore states.
+            random_state = np.random.get_state()
+            state = self.env.get_state()
+            action = np.zeros(self.env.action_space.shape)
+            obs, _, _, _ = self.env.step(action)
+            next_points_XYZ = obs[0]
+            if next_points_XYZ is None:
+                next_points_XYZ = points_XYZ
+            s = np.concatenate(next_points_XYZ)
+            self.env.set_state(state)
+            np.random.set_state(random_state)
+        else:
+            s = np.concatenate(points_XYZ)
 
         L = []
         for point_XYZ, target_point_XYZ in zip(points_XYZ, target_points_XYZ):
