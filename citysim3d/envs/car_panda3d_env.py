@@ -238,6 +238,7 @@ class StraightCarPanda3dEnv(CarPanda3dEnv):
             model_name_ind = np.random.randint(0, len(self.model_names))
             state = speed, lane_offset, straight_dist, model_name_ind
         self.set_state(state)
+        return self.observe()
 
     def get_state(self):
         model_name_ind = self.model_names.index(self.model_name)
@@ -416,8 +417,9 @@ class SimpleGeometricCarPanda3dEnv(CarPanda3dEnv):
             self._start_ind, self._end_ind = self.sample_vertex_inds()
             straight_dist = np.random.uniform(0.0, self.max_straight_dist)
             model_name_ind = np.random.randint(0, len(self.model_names))
-            state = speed, lane_offset, straight_dist, start_ind, end_ind, model_name_ind
+            state = speed, lane_offset, straight_dist, self._start_ind, self._end_ind, model_name_ind
         self.set_state(state)
+        return self.observe()
 
     def get_state(self):
         model_name_ind = self.model_names.index(self.model_name)
@@ -651,6 +653,7 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
             model_name_ind = np.random.randint(0, len(self.model_names))
             state = speed, lane_offset, straight_dist, turn_angle, self._start_ind, self._middle_ind, self._end_ind, model_name_ind
         self.set_state(state)
+        return self.observe()
 
     def get_state(self):
         # convert None to -1 so that the state is a numeric array (as opposed to object array)
