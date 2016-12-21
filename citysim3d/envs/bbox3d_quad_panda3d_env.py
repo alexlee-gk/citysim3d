@@ -19,7 +19,8 @@ class Bbox3dSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         bbox_space = BoxSpace(-np.inf, np.inf, shape=(3,))
         self._observation_space = TupleSpace([bbox_space] + observation_spaces)
 
-        self.car_env._car_local_node.showTightBounds()
+        # uncomment to visualize bounding box (makes rendering slow)
+        # self.car_env._car_local_node.showTightBounds()
 
     def observe(self):
         obj_node = self.car_env._car_local_node
