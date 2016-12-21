@@ -92,10 +92,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     observation_spaces.append(BoxSpace(self.quad_camera_node.node().getLens().getNear(),
                                                        self.quad_camera_node.node().getLens().getFar(),
                                                        shape=(size[1], size[0], 1)))
-            if len(observation_spaces) == 1:
-                self._observation_space, = observation_spaces
-            else:
-                self._observation_space = TupleSpace(observation_spaces)
+            self._observation_space = TupleSpace(observation_spaces)
         else:
             self._observation_space = None
 
@@ -232,10 +229,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
     def observe(self):
         if self.sensor_names:
-            obs = self.camera_sensor.observe()
-            if len(self.sensor_names) == 1:
-                obs, = obs
-            return obs
+            return self.camera_sensor.observe()
         else:
             return None
 
