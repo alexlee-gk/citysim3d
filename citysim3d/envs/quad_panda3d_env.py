@@ -13,7 +13,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
-        self.offset = offset if offset is not None else np.array([0, -4., 3.]) * 4.
+        self.offset = offset if offset is not None else np.array([0, -np.sqrt(3), 1]) * 15
         self.car_env_class = car_env_class or GeometricCarPanda3dEnv
         self.car_action_space = car_action_space or BoxSpace(np.array([0.0, 0.0]), np.array([0.0, 0.0]))
         self.car_model_name = car_model_name or ['camaro2']
@@ -24,7 +24,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.city_node = self.car_env.city_node
         self.car_node = self.car_env.car_node
 
-        # modify the car's speed limits so that the car's speed is always a quater of the quad's maximum forward velocity
+        # modify the car's speed limits so that the car's speed is always a quarter of the quad's maximum forward velocity
         self.car_env.speed_offset_space.low[0] = self.action_space.high[1] / 4  # meters per second
         self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
 
@@ -59,7 +59,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             self.quad_camera_sensor = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=size, hfov=hfov)
             self.quad_camera_node = self.camera_node = self.quad_camera_sensor.cam
             self.quad_camera_node.reparentTo(self.quad_node)
-            self.quad_camera_node.setPos(tuple(np.array([0, -4., 3.]) * -0.02))  # slightly in front of the quad
+            self.quad_camera_node.setPos(tuple(np.array([0, -np.sqrt(3), 1]) * -0.05))  # slightly in front of the quad
             self.quad_camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 6, np.array([1, 0, 0]))))
             self.quad_camera_node.setName('quad_camera')
 
@@ -192,12 +192,22 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             self.set_state(state)
         return self.observe()
 
-    def compute_desired_quad_pos_quat(self):
-        # desired position of the quad is located at offset relative to the car
-        car_T = tf.pose_matrix(self.car_node.getQuat(), self.car_node.getPos())
-        des_quad_pos = car_T[:3, 3] + car_T[:3, :3].dot(self.offset)
+    @property
+    def hor_car_T(self):
+        hor_car_T = tf.pose_matrix(self.car_node.getQuat(), self.car_node.getPos())
+        hor_car_rot_z = np.array([0, 0, 1])
+        hor_car_rot_x = np.cross(hor_car_T[:3, 1], hor_car_rot_z)
+        hor_car_rot_y = np.cross(hor_car_rot_z, hor_car_rot_x)
+        hor_car_T[:3, :3] = np.array([hor_car_rot_x, hor_car_rot_y, hor_car_rot_z]).T
+        return hor_car_T
+
+    def compute_desired_quad_pos_quat(self, offset=None):
+        offset = offset if offset is not None else self.offset
+        # desired position of the quad is located at offset relative to the car (reoriented so that the car is horizontal)
+        hor_car_T = self.hor_car_T
+        des_quad_pos = hor_car_T[:3, 3] + hor_car_T[:3, :3].dot(offset)
         # desired rotation of the quad points towards the car while constraining the z-axis to be up
-        des_quad_rot_y = car_T[:3, 3] - des_quad_pos
+        des_quad_rot_y = hor_car_T[:3, 3] - des_quad_pos
         des_quad_rot_y /= np.linalg.norm(des_quad_rot_y)
         des_quad_rot_z = np.array([0, 0, 1])
         des_quad_rot_x = np.cross(des_quad_rot_y, des_quad_rot_z)
@@ -237,7 +247,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             tightness = 0.1
         target_node = self.quad_node
         target_T = tf.pose_matrix(target_node.getQuat(), target_node.getPos())
-        target_camera_pos = target_T[:3, 3] + target_T[:3, :3].dot(np.array([0., -4., 3.]) * 1)
+        target_camera_pos = target_T[:3, 3] + target_T[:3, :3].dot(np.array([0., -np.sqrt(3), 1]) * 15)
         self.app.cam.setPos(tuple((1 - tightness) * np.array(self.app.cam.getPos()) + tightness * target_camera_pos))
         self.app.cam.lookAt(target_node)
 
