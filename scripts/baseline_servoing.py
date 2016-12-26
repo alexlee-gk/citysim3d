@@ -45,8 +45,8 @@ def main():
                              "projected 2d points")
 
     # actions are translation and angular speed (angular velocity constraint to the (0, 0, 1) axis)
-    action_space = TranslationAxisAngleSpace(low=[-10, -20, -10, -np.pi/2],
-                                             high=[10, 20, 10, np.pi/2],
+    action_space = TranslationAxisAngleSpace(low=[-20, -10, -10, -np.pi/2],
+                                             high=[20, 10, 10, np.pi/2],
                                              axis=[0, 0, 1])
     if args.reset_states_fname is None:
         reset_states = [None] * args.num_trajs
