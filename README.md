@@ -39,6 +39,12 @@ echo /usr/share/panda3d >> ~/.pyenv/versions/2.7.12/lib/python2.7/site-packages/
 echo /usr/lib/x86_64-linux-gnu/panda3d >> ~/.pyenv/versions/2.7.12/lib/python2.7/site-packages/panda3d.pth
 ```
 
+#### Troubleshooting
+If the latest source of Panda3d doesn't build successfully, try using one of the stable versions.
+```
+git checkout tags/v1.9.2
+```
+
 ### Install Panda3D in MacOS Sierra
 ```
 git clone git@github.com:panda3d/panda3d.git
