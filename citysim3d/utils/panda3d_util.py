@@ -100,24 +100,24 @@ def extrude_depth(lens, points2d):
         points2d_full = np.c_[points2d, np.ones(len(points2d))]
         points3d_full = points2d_full.dot(proj_mat_inv.T)
         points3d = points3d_full[:, :3] / points3d_full[:, 3][:, None]
-    elif points2d.ndim == 3 and points2d.shape == (lens.film_size[1], lens.film_size[0], 1):
-        x, y = np.meshgrid(np.arange(lens.film_size[0]), np.arange(lens.film_size[1]))
+    elif points2d.ndim == 3 and points2d.shape == (lens.getFilmSize()[1], lens.getFilmSize()[0], 1):
+        x, y = np.meshgrid(np.arange(lens.getFilmSize()[0]), np.arange(lens.getFilmSize()[1]))
         points2d = np.concatenate([x[..., None], y[..., None], points2d], axis=-1)
         points3d = extrude_depth(lens, points2d.reshape((-1, 3))).reshape(points2d.shape)
     return points3d
 
 
 def xy_to_points2d(lens, xy):
-    c_xy = np.array([lens.film_size[0], lens.film_size[1]]) / 2.0 - 0.5
-    points2d = 2.0 * (xy - c_xy) / (np.array(lens.film_size) - 1.0)
+    c_xy = np.array([lens.getFilmSize()[0], lens.getFilmSize()[1]]) / 2.0 - 0.5
+    points2d = 2.0 * (xy - c_xy) / (np.array(lens.getFilmSize()) - 1.0)
     points2d = points2d * np.array([1.0, -1.0])
     return points2d
 
 
 def points2d_to_xy(lens, points2d):
-    c_xy = np.array([lens.film_size[0], lens.film_size[1]]) / 2.0 - 0.5
+    c_xy = np.array([lens.getFilmSize()[0], lens.getFilmSize()[1]]) / 2.0 - 0.5
     points2d = points2d * np.array([1.0, -1.0])
-    xy = np.round(points2d * (np.array(lens.film_size) - 1.0) / 2.0 + c_xy).astype(int)
+    xy = np.round(points2d * (np.array(lens.getFilmSize()) - 1.0) / 2.0 + c_xy).astype(int)
     return xy
 
 

@@ -19,7 +19,7 @@ class Panda3dEnv(Env):
 
         # setup visualization camera
         vfov = 45
-        hfov = vfov * float(self.app.win.size[0]) / float(self.app.win.size[1])
+        hfov = vfov * float(self.app.win.get_size()[0]) / float(self.app.win.get_size()[1])
         self.app.camLens.setFov(hfov, vfov)
         self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
 
