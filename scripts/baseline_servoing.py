@@ -100,14 +100,12 @@ def main():
         for step_iter in range(args.num_steps):
             try:
                 if args.visualize:
-                    points_XYZ, image, target_points_XYZ, target_image = obs
-
-                    target_points_2d = putil.project(env.camera_sensor.lens, target_points_XYZ)
+                    target_points_2d = putil.project(env.camera_sensor.lens, obs['target_points'])
                     target_points_xy = putil.points2d_to_xy(env.camera_sensor.lens, target_points_2d)
-                    points_2d = putil.project(env.camera_sensor.lens, points_XYZ)
+                    points_2d = putil.project(env.camera_sensor.lens, obs['points'])
                     points_xy = putil.points2d_to_xy(env.camera_sensor.lens, points_2d)
 
-                    vis_image = image.copy()  # cv2 complains if the image is used directly
+                    vis_image = obs['image'].copy()  # cv2 complains if the image is used directly
                     if args.env == 'bbox':
                         bbox_min = points_xy[0]
                         bbox_max = points_xy[-1]
@@ -120,7 +118,7 @@ def main():
                             cv2.circle(vis_image, tuple(target_point_xy), 4, (0, 0, 255), 1)
                     else:
                         offset_xy = np.array([0, vis_image.shape[0]])
-                        vis_image = np.vstack([vis_image, target_image])
+                        vis_image = np.vstack([vis_image, obs['target_image']])
                         for point_xy, target_point_xy in zip(points_xy, target_points_xy):
                             cv2.circle(vis_image, tuple(target_point_xy + offset_xy), 4, (0, 255, 0), 1)
                             cv2.line(vis_image, tuple(point_xy), tuple(target_point_xy + offset_xy), (0, 0, 255), 1)

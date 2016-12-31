@@ -1,21 +1,24 @@
 import numpy as np
 from citysim3d.envs import Env
 from citysim3d.envs import Panda3dMaskCameraSensor
-from citysim3d.spaces import TupleSpace
+from citysim3d.spaces import DictSpace
 
 
 class ServoingEnv(Env):
     def __init__(self, env, max_time_steps=100):
         self.__dict__.update(env.__dict__)
         self.env = env
+        # only non-target observation spaces
+        assert isinstance(self.env.observation_space, DictSpace)
+        self._observation_space = self.env.observation_space
         self._target_obs = None
         self._t = 0
         self._T = max_time_steps
         if not hasattr(self, 'mask_camera_sensor'):
             self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                  size=self.camera_sensor.size,
-                                                  near_far=(self.camera_sensor.lens.getNear(), self.camera_sensor.lens.getFar()),
-                                                  hfov=self.camera_sensor.lens.getFov())
+                                                              size=self.camera_sensor.size,
+                                                              near_far=(self.camera_sensor.lens.getNear(), self.camera_sensor.lens.getFar()),
+                                                              hfov=self.camera_sensor.lens.getFov())
         for cam in self.mask_camera_sensor.cam:
             cam.reparentTo(self.camera_sensor.cam)
 
@@ -41,28 +44,34 @@ class ServoingEnv(Env):
         mask = self.mask_camera_sensor.observe()[0]
         return np.any(mask)
 
+    def _step(self, action):
+        return self.env.step(action)
+
     def step(self, action):
-        obs, reward, done, info = self.env.step(action)
-        assert isinstance(obs, (tuple, list))
+        obs, reward, done, info = self._step(action)
+        assert isinstance(obs, dict)
         if reward is None:
             camera_to_target_T = np.array(self.car_node.getTransform(self.camera_node).getMat()).T
             target_direction = - camera_to_target_T[:3, 3]
             self._t += 1
             done = done or \
-                   self._t >= self._T or \
-                   not self.is_in_view() or \
-                   np.linalg.norm(target_direction) < 4.0
+                obs.get('points') is None or \
+                self._t >= self._T or \
+                not self.is_in_view() or \
+                np.linalg.norm(target_direction) < 4.0
             reward = - self.get_image_formation_error()
             if done:
                 reward *= self._T - self._t + 1
-        return tuple(list(obs) + list(self._target_obs)), reward, done, info
+        obs.update(self._target_obs)
+        return obs, reward, done, info
 
     def reset(self, state=None):
         obs = self.env.reset(state=state)
-        assert isinstance(obs, (tuple, list))
-        self._target_obs = obs
+        assert isinstance(obs, dict)
+        self._target_obs = {'target_' + k: v for (k, v) in obs.items()}
         self._t = 0
-        return tuple(list(obs) + list(self._target_obs))
+        obs.update(self._target_obs)
+        return obs
 
     def get_state(self):
         return self.env.get_state()
@@ -82,5 +91,7 @@ class ServoingEnv(Env):
 
     @property
     def observation_space(self):
-        assert isinstance(self.env.observation_space, TupleSpace)
-        return TupleSpace(self.env.observation_space.spaces + self.env.observation_space.spaces)
+        spaces = dict(self._observation_space.spaces)
+        target_spaces = {'target_' + k: space for (k, space) in self._observation_space.spaces.items()}
+        spaces.update(target_spaces)
+        return DictSpace(spaces)

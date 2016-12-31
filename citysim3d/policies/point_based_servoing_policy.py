@@ -44,7 +44,7 @@ class PointBasedServoingPolicy(object):
         self.use_car_dynamics = use_car_dynamics
 
     def act(self, obs):
-        points_XYZ = obs[0]
+        points_XYZ = obs['points']
         points_xzY = XYZ_to_xzY(points_XYZ)
 
         if self.use_car_dynamics:
@@ -53,7 +53,7 @@ class PointBasedServoingPolicy(object):
             state = self.env.get_state()
             action = np.zeros(self.env.action_space.shape)
             obs, _, _, _ = self.env.step(action)
-            next_points_XYZ = obs[0]
+            next_points_XYZ = obs['points']
             if next_points_XYZ is None:
                 next_points_XYZ = points_XYZ
             next_points_xzY = XYZ_to_xzY(next_points_XYZ)
@@ -63,7 +63,7 @@ class PointBasedServoingPolicy(object):
         else:
             s = np.concatenate(points_xzY[:, :2])
 
-        target_points_XYZ = obs[len(obs) // 2]
+        target_points_XYZ = obs['target_points']
         target_points_xzY = XYZ_to_xzY(target_points_XYZ)
         s_target = np.concatenate(target_points_xzY[:, :2])
 

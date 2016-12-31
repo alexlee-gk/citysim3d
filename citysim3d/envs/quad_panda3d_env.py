@@ -1,7 +1,7 @@
 import numpy as np
 from panda3d.core import AmbientLight, PointLight
 from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor, GeometricCarPanda3dEnv
-from citysim3d.spaces import BoxSpace, TupleSpace
+from citysim3d.spaces import BoxSpace, DictSpace
 import citysim3d.utils.transformations as tf
 from citysim3d.utils import scale_crop_camera_parameters
 
@@ -13,7 +13,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
-        self.offset = offset if offset is not None else np.array([0, -np.sqrt(3), 1]) * 15
+        self.offset = np.array(offset) if offset is not None else np.array([0, -1 / np.tan(np.pi / 6), 1]) * 15
         self.car_env_class = car_env_class or GeometricCarPanda3dEnv
         self.car_action_space = car_action_space or BoxSpace(np.array([0.0, 0.0]), np.array([0.0, 0.0]))
         self.car_model_name = car_model_name or ['camaro2']
@@ -33,6 +33,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.prop_angle = 0.0
         self.prop_rpm = 10212
 
+        observation_spaces = dict()
         if self.sensor_names:
             # orig_size = (640, 480)
             # orig_hfov = 60.0
@@ -46,7 +47,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             # crop_size = size = (32 * 8, 32 * 8)
             # hfov = np.rad2deg(2 * np.arctan(np.tan(np.deg2rad(orig_hfov) / 2.) * crop_size[0] / orig_size[0] / scale_size))
 
-            size, hfov = scale_crop_camera_parameters((640, 480), 60.0, crop_size=(int(32 / 0.125),) * 2)
+            # size, hfov = scale_crop_camera_parameters((640, 480), 60.0, crop_size=(int(32 / 0.125),) * 2)
 
             color = depth = False
             for sensor_name in self.sensor_names:
@@ -56,10 +57,10 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.quad_camera_sensor = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=size, hfov=hfov)
+            self.quad_camera_sensor = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth)
             self.quad_camera_node = self.camera_node = self.quad_camera_sensor.cam
             self.quad_camera_node.reparentTo(self.quad_node)
-            self.quad_camera_node.setPos(tuple(np.array([0, -np.sqrt(3), 1]) * -0.05))  # slightly in front of the quad
+            self.quad_camera_node.setPos(tuple(np.array([0, -1 / np.tan(np.pi / 6), 1]) * -0.05))  # slightly in front of the quad
             self.quad_camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 6, np.array([1, 0, 0]))))
             self.quad_camera_node.setName('quad_camera')
 
@@ -84,17 +85,14 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             # lens2.setFov(hfov)
 
             size = self.quad_camera_sensor.size
-            observation_spaces = []
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
-                    observation_spaces.append(BoxSpace(0, 255, shape=(size[1], size[0], 3), dtype=np.uint8))
+                    observation_spaces[sensor_name] = BoxSpace(0, 255, shape=(size[1], size[0], 3), dtype=np.uint8)
                 elif sensor_name == 'depth_image':
-                    observation_spaces.append(BoxSpace(self.quad_camera_node.node().getLens().getNear(),
-                                                       self.quad_camera_node.node().getLens().getFar(),
-                                                       shape=(size[1], size[0], 1)))
-            self._observation_space = TupleSpace(observation_spaces)
-        else:
-            self._observation_space = None
+                    observation_spaces[sensor_name] = BoxSpace(self.quad_camera_node.node().getLens().getNear(),
+                                                               self.quad_camera_node.node().getLens().getFar(),
+                                                               shape=(size[1], size[0], 1))
+        self._observation_space = DictSpace(observation_spaces)
 
         self._first_render = True
 
@@ -229,9 +227,9 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
     def observe(self):
         if self.sensor_names:
-            return self.camera_sensor.observe()
+            return dict(zip(self.sensor_names, self.camera_sensor.observe()))
         else:
-            return None
+            return dict()
 
     def render(self):
         if self._first_render:
@@ -241,7 +239,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             tightness = 0.1
         target_node = self.quad_node
         target_T = tf.pose_matrix(target_node.getQuat(), target_node.getPos())
-        target_camera_pos = target_T[:3, 3] + target_T[:3, :3].dot(np.array([0., -np.sqrt(3), 1]) * 15)
+        target_camera_pos = target_T[:3, 3] + target_T[:3, :3].dot(np.array([0., -1 / np.tan(np.pi / 6), 1]) * 15)
         self.app.cam.setPos(tuple((1 - tightness) * np.array(self.app.cam.getPos()) + tightness * target_camera_pos))
         self.app.cam.lookAt(target_node)
 

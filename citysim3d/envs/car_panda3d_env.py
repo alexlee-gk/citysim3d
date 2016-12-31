@@ -4,7 +4,7 @@ from collections import defaultdict
 import collada
 from panda3d.core import AmbientLight, PointLight
 from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor
-from citysim3d.spaces import BoxSpace, TupleSpace
+from citysim3d.spaces import BoxSpace, DictSpace
 import citysim3d.utils.transformations as tf
 
 
@@ -34,6 +34,7 @@ class CarPanda3dEnv(Panda3dEnv):
 
         self.model_name = self.model_names[0]  # first car by default
 
+        observation_spaces = dict()
         if self.sensor_names:
             color = depth = False
             for sensor_name in self.sensor_names:
@@ -49,17 +50,14 @@ class CarPanda3dEnv(Panda3dEnv):
             self.car_camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
             self.car_camera_node.setName('car_camera')
 
-            observation_spaces = []
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
-                    observation_spaces.append(BoxSpace(0, 255, shape=(480, 640, 3), dtype=np.uint8))
+                    observation_spaces[sensor_name] = BoxSpace(0, 255, shape=(480, 640, 3), dtype=np.uint8)
                 elif sensor_name == 'depth_image':
-                    observation_spaces.append(BoxSpace(self.car_camera_node.node().getLens().getNear(),
-                                                       self.car_camera_node.node().getLens().getFar(),
-                                                       shape=(480, 640, 1)))
-            self._observation_space = TupleSpace(observation_spaces)
-        else:
-            self._observation_space = None
+                    observation_spaces[sensor_name] = BoxSpace(self.car_camera_node.node().getLens().getNear(),
+                                                               self.car_camera_node.node().getLens().getFar(),
+                                                               shape=(480, 640, 1))
+        self._observation_space = DictSpace(observation_spaces)
 
         self._first_render = True
 
@@ -169,9 +167,9 @@ class CarPanda3dEnv(Panda3dEnv):
 
     def observe(self):
         if self.sensor_names:
-            return self.camera_sensor.observe()
+            return dict(zip(self.sensor_names, self.camera_sensor.observe()))
         else:
-            return None
+            return dict()
 
     def render(self):
         if self._first_render:

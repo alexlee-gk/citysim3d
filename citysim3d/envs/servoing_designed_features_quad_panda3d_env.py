@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from citysim3d.envs import SimpleQuadPanda3dEnv
+from citysim3d.envs import SimpleQuadPanda3dEnv, ServoingEnv
 from citysim3d.envs import Panda3dMaskCameraSensor
 from citysim3d.spaces import BoxSpace, TupleSpace
 from citysim3d.utils.panda3d_util import xy_depth_to_XYZ
@@ -19,7 +19,7 @@ def is_present(point_xy, mask):
     return False
 
 
-class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
+class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, ServoingEnv):
     def __init__(self, action_space, sensor_names=None, offset=None,
                  feature_type=None, filter_features=None, max_time_steps=100,
                  car_env_class=None, car_action_space=None, car_model_name=None,
@@ -32,16 +32,8 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
                                                                            car_model_name=car_model_name,
                                                                            app=app, dt=dt)
 
-        if len(self.sensor_names) == 0:
-            observation_spaces = []
-        elif len(self.sensor_names) == 1:
-            observation_spaces = [self._observation_space]
-        else:
-            assert isinstance(self._observation_space, TupleSpace)
-            observation_spaces = list(self._observation_space.spaces)
-        bbox_space = BoxSpace(np.array([-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]),
-                              np.array([np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]))
-        self._observation_space = TupleSpace([bbox_space] + observation_spaces)
+        self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]),
+                                                            np.array([np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]))
 
         self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
                                                           size=self.camera_sensor.size,
@@ -74,7 +66,6 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
             self._matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         else:
             self._matcher = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
-        self._target_image = None
         self._target_key_points = None
         self._target_descriptors = None
 
@@ -86,10 +77,6 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         return self._feature_type
 
     @property
-    def target_image(self):
-        return self._target_image
-
-    @property
     def target_key_points(self):
         return self._target_key_points
 
@@ -97,46 +84,17 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
     def target_descriptors(self):
         return self._target_descriptors
 
-    def get_image_formation_error(self):
-        # target relative to camera
-        camera_to_target_T = np.array(self.car_node.getTransform(self.camera_node).getMat()).T
-        target_direction = - camera_to_target_T[:3, 3]
-        x_error = (target_direction[0] / target_direction[1])
-        y_error = (target_direction[2] / target_direction[1])
-        z_error = (1.0 / np.linalg.norm(target_direction) - 1.0 / np.linalg.norm(self.offset))
-        # use this focal length for compatibility with the original experiments
-        fov_y = np.pi / 4.
-        height = 480
-        focal_length = height / (2. * np.tan(fov_y / 2.))
-        # TODO: the experiments uses the norm of target_direction but the paper uses the z-value of it
-        # TODO: use the actual target_direction of the first time step instead of assuming anything about it
-        # TODO: use the action focal length
-        # z_error = 1.0 / target_direction[1] - 1.0 / np.linalg.norm(self.offset))
-        # focal_length = self.camera_sensor.focal_length
-        return focal_length * np.linalg.norm([x_error, y_error, z_error])
-
     def is_in_view(self):
         mask = self.mask_camera_sensor.observe()[0]
         return np.any(mask)
 
+    def _step(self, action):
+        return SimpleQuadPanda3dEnv.step(self, action)
+
     def step(self, action):
-        obs, reward, done, info = super(ServoingDesignedFeaturesSimpleQuadPanda3dEnv, self).step(action)
-        if obs is None or obs[0] is None:  # observation for the corner points is None
-            done = True
-        camera_to_target_T = np.array(self.car_node.getTransform(self.camera_node).getMat()).T
-        target_direction = - camera_to_target_T[:3, 3]
-        self._t += 1
-        done = done or \
-               self._t >= self._T or \
-               not self.is_in_view() or \
-               np.linalg.norm(target_direction) < 4.0
-        reward = - self.get_image_formation_error()
-        if done:
-            reward *= self._T - self._t + 1
-        return obs, reward, done, info
+        return ServoingEnv.step(self, action)
 
     def reset(self, state=None):
-        self._target_image = None
         self._target_obs = None
         self._target_key_points = None
         self._target_descriptors = None
@@ -144,19 +102,13 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         return super(ServoingDesignedFeaturesSimpleQuadPanda3dEnv, self).reset(state=state)
 
     def observe(self):
-        obs = self.camera_sensor.observe()
-        if len(obs) == 1:
-            image, = obs
-        elif len(obs) == 2:
-            image, _ = obs
-        else:
-            raise ValueError("The observation contains no images.")
+        obs = super(ServoingDesignedFeaturesSimpleQuadPanda3dEnv, self).observe()
+        assert isinstance(obs, dict)
 
         mask, depth_image, _ = self.mask_camera_sensor.observe()
-        if self._target_image is None:
-            self._target_obs = obs
-            self._target_image = image
-            key_points, descriptors = self._feature_extractor.detectAndCompute(image, None)
+        if self._target_obs is None:
+            self._target_obs = {'target_' + k: v for (k, v) in obs.items()}
+            key_points, descriptors = self._feature_extractor.detectAndCompute(self._target_obs['target_image'], None)
             self._target_key_points = []
             self._target_descriptors = []
             for key_point, descriptor in zip(key_points, descriptors):
@@ -165,18 +117,19 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
                     self._target_descriptors.append(descriptor)
             self._target_descriptors = np.asarray(self._target_descriptors)
 
-        key_points, descriptors = self._feature_extractor.detectAndCompute(image, None)
+        key_points, descriptors = self._feature_extractor.detectAndCompute(obs['image'], None)
         matches = self._matcher.match(descriptors, self._target_descriptors)
 
         if self.filter_features:
             matches = [match for match in matches if is_present(key_points[match.queryIdx].pt, mask)]
-        if not matches:
-            return None
 
-        key_points_xy = np.array([key_points[match.queryIdx].pt for match in matches])
-        target_key_points_xy = np.array([self._target_key_points[match.trainIdx].pt for match in matches])
-        key_points_XYZ = xy_depth_to_XYZ(self.camera_sensor.lens, key_points_xy, depth_image)
-        target_key_points_XYZ = xy_depth_to_XYZ(self.camera_sensor.lens, target_key_points_xy, depth_image)
+        if matches:
+            key_points_xy = np.array([key_points[match.queryIdx].pt for match in matches])
+            target_key_points_xy = np.array([self._target_key_points[match.trainIdx].pt for match in matches])
+            key_points_XYZ = xy_depth_to_XYZ(self.camera_sensor.lens, key_points_xy, depth_image)
+            target_key_points_XYZ = xy_depth_to_XYZ(self.camera_sensor.lens, target_key_points_xy, depth_image)
+            obs['points'] = key_points_XYZ
+            obs['target_points'] = target_key_points_XYZ
 
-        obs = [key_points_XYZ] + list(obs) + [target_key_points_XYZ] + list(self._target_obs)
-        return tuple(obs)
+        obs.update(self._target_obs)
+        return obs
