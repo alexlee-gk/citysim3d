@@ -28,7 +28,6 @@ default-directnotify-level warning
 model-path    $CITYSIM3D_DIR/models/megacity-urban-construction-kit
 model-path    $CITYSIM3D_DIR/models/vehicles
 
-default-model-extension	.bam
 vfs-mount $CITYSIM3D_DIR/models/models.mf . ro,pw:citysim3d
 
 # Enable/disable performance profiling tool and frame-rate meter
