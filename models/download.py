@@ -19,12 +19,12 @@ if args.rsync:
 else:
     print "downloading tar file (this might take a while)"
     remote_fname = "http://rll.berkeley.edu/citysim3d/models.tar.gz"
-    local_fname = os.path.expandvars("${CITYSIM3D_DIR}/models/models.tar.gz")
     local_dir = os.path.expandvars("${CITYSIM3D_DIR}/models/")
+    local_fname = os.path.join(local_dir, "models.tar.gz")
     urlinfo = urllib2.urlopen(remote_fname)
     with open(local_fname, "w") as fh:
         fh.write(urlinfo.read())
 
     print "unpacking file"
     # unpack without top-level directory
-    subprocess.check_call("tar -xvf %s --strip-components 1" % local_fname, shell=True)
+    subprocess.check_call("tar -xvf %s -C %s --strip-components 1" % (local_fname, local_dir), shell=True)
