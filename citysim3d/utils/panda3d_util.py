@@ -1,5 +1,6 @@
 from panda3d.core import Point2, Point3
 from panda3d.core import BoundingBox, BoundingHexahedron
+from panda3d.core import VirtualFileSystem
 
 
 def make_bounds(lens, scale_size=None, crop_size=None):
@@ -64,3 +65,20 @@ def is_in_view(cam_node, obj_node, scale_size=None, crop_size=None):
     bounds = BoundingBox(*obj_node.getTightBounds())
     bounds.xform(obj_node.getParent().getMat(cam_node))
     return lens_bounds.contains(bounds)
+
+
+# python implementation of the VirtualFileSystem method from here:
+# https://github.com/panda3d/panda3d/blob/master/panda/src/express/virtualFileSystem.cxx
+def parse_options(options):
+    flags = 0
+    pw = ''
+    for option in options.split(','):
+        if option == '0' or not option:
+            pass
+        elif option == 'ro':
+            flags |= VirtualFileSystem.MFReadOnly
+        elif option.startswith('pw:'):
+            pw = option[3:]
+        else:
+            raise ValueError('Invalid option on vfs-mount: %s' % option)
+    return flags, pw

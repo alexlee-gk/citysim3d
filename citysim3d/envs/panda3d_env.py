@@ -1,11 +1,14 @@
 import sys
+import os
 import numpy as np
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import WindowProperties, FrameBufferProperties
 from panda3d.core import GraphicsPipe, GraphicsEngine, GraphicsOutput
 from panda3d.core import Texture
+from panda3d.core import VirtualFileSystem, ConfigVariableList, Filename
 from citysim3d.envs import Env
 import citysim3d.utils.transformations as tf
+from citysim3d.utils.panda3d_util import parse_options
 
 
 class Panda3dEnv(Env):
@@ -21,6 +24,20 @@ class Panda3dEnv(Env):
         hfov = vfov * float(self.app.win.size[0]) / float(self.app.win.size[1])
         self.app.camLens.setFov(hfov, vfov)
         self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
+
+        # The VirtualFileSystem, which has already initialized, doesn't see the mount
+        # directives in the config(s) yet. We have to force it to load those manually:
+        vfs = VirtualFileSystem.getGlobalPtr()
+        mounts = ConfigVariableList('vfs-mount')
+        for mount_desc in mounts:
+            mount_desc = mount_desc.split(' ')
+            physical_filename, mount_point = mount_desc[:2]
+            physical_filename = os.path.expandvars(physical_filename)
+            if len(mount_desc) > 2:
+                options = mount_desc[2]
+            else:
+                options = ''
+            vfs.mount(Filename(physical_filename), Filename(mount_point), *parse_options(options))
 
     def render(self):
         self.app.cam.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 2, np.array([1, 0, 0]))))
