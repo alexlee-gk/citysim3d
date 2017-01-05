@@ -16,8 +16,8 @@ class Point3dBasedServoingPolicy(PointBasedServoingPolicy):
         self.use_car_dynamics = use_car_dynamics
 
     def act(self, obs):
-        points_XYZ = obs[0]
-        target_points_XYZ = obs[len(obs) // 2]
+        points_XYZ = obs['points']
+        target_points_XYZ = obs['target_points']
 
         s_target = np.concatenate(target_points_XYZ)
 
@@ -27,7 +27,7 @@ class Point3dBasedServoingPolicy(PointBasedServoingPolicy):
             state = self.env.get_state()
             action = np.zeros(self.env.action_space.shape)
             obs, _, _, _ = self.env.step(action)
-            next_points_XYZ = obs[0]
+            next_points_XYZ = obs['points']
             if next_points_XYZ is None:
                 next_points_XYZ = points_XYZ
             s = np.concatenate(next_points_XYZ)

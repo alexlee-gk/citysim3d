@@ -18,16 +18,8 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
     def __init__(self, *args, **kwargs):
         super(BboxSimpleQuadPanda3dEnv, self).__init__(*args, **kwargs)
 
-        if len(self.sensor_names) == 0:
-            observation_spaces = []
-        elif len(self.sensor_names) == 1:
-            observation_spaces = [self._observation_space]
-        else:
-            assert isinstance(self._observation_space, TupleSpace)
-            observation_spaces = list(self._observation_space.spaces)
-        bbox_space = BoxSpace(np.array([-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]),
-                              np.array([np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]))
-        self._observation_space = TupleSpace([bbox_space] + observation_spaces)
+        self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]),
+                                                            np.array([np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]))
 
         self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
                                                           size=self.camera_sensor.size,
@@ -38,8 +30,7 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
 
     def step(self, action):
         obs, reward, done, info = super(BboxSimpleQuadPanda3dEnv, self).step(action)
-        if obs[0] is None:  # observation for the corner points is None
-            done = True
+        done = done or obs.get('points') is None
         return obs, reward, done, info
 
     def observe(self):
@@ -62,8 +53,6 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         else:
             corners_XYZ = None
 
-        if self.sensor_names:
-            obs = [corners_XYZ] + list(self.camera_sensor.observe())
-        else:
-            obs = [corners_XYZ]
-        return tuple(obs)
+        obs = super(BboxSimpleQuadPanda3dEnv, self).observe()
+        obs['points'] = corners_XYZ
+        return obs

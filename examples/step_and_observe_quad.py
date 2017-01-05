@@ -24,8 +24,8 @@ def main():
         env.reset()
         for step_iter in range(num_steps):
             action = action_space.sample()
-            observations, _, _, _ = env.step(action)
-            image, depth_image = observations
+            obs, _, _, _ = env.step(action)
+            image, depth_image = obs['image'], obs['depth_image']
 
             # convert BGR image to RGB image
             image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)

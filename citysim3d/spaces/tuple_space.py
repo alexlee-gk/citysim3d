@@ -14,9 +14,7 @@ class TupleSpace(Space):
         return tuple([space.sample() for space in self.spaces])
 
     def contains(self, x):
-        if isinstance(x, list):
-            x = tuple(x)  # Promote list to tuple for contains check
-        return isinstance(x, tuple) and len(x) == len(self.spaces) and all(
+        return isinstance(x, (tuple, list)) and len(x) == len(self.spaces) and all(
             space.contains(part) for (space, part) in zip(self.spaces, x))
 
     def clip(self, x, out=None):
@@ -32,7 +30,9 @@ class TupleSpace(Space):
         return tuple([space.shape() for space in self.spaces])
 
     def __eq__(self, other):
-        return all([(space == other_space) for (space, other_space) in zip(self.spaces, other.spaces)])
+        return isinstance(other, (tuple, list)) and \
+               len(other) == len(self.spaces) and \
+               all([(space == other_space) for (space, other_space) in zip(self.spaces, other.spaces)])
 
 
 Tuple = TupleSpace

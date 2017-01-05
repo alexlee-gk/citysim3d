@@ -7,9 +7,9 @@ class Space(object):
     E.g. to choose a random action.
     """
 
-    def sample(self, seed=0):
+    def sample(self):
         """
-        Uniformly randomly sample a random elemnt of this space
+        Uniformly randomly sample a random element of this space
         """
         raise NotImplementedError
 

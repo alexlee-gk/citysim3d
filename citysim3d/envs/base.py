@@ -66,6 +66,7 @@ class Env(object):
             >>> assert np.allclose(state, self.get_state())
 
         """
+        raise NotImplementedError
 
     def render(self):
         pass
