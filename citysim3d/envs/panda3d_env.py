@@ -6,6 +6,7 @@ from panda3d.core import WindowProperties, FrameBufferProperties
 from panda3d.core import GraphicsPipe, GraphicsEngine, GraphicsOutput
 from panda3d.core import Texture
 from panda3d.core import VirtualFileSystem, ConfigVariableList, Filename
+from panda3d.core import BitMask32
 from citysim3d.envs import Env
 import citysim3d.utils.transformations as tf
 from citysim3d.utils.panda3d_util import parse_options
@@ -21,7 +22,7 @@ class Panda3dEnv(Env):
 
         # setup visualization camera
         vfov = 45
-        hfov = vfov * float(self.app.win.size[0]) / float(self.app.win.size[1])
+        hfov = vfov * float(self.app.win.get_size()[0]) / float(self.app.win.get_size()[1])
         self.app.camLens.setFov(hfov, vfov)
         self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
 
@@ -139,3 +140,32 @@ class Panda3dCameraSensor(object):
             images.append(depth_image)
 
         return tuple(images)
+
+
+class Panda3dMaskCameraSensor(object):
+    def __init__(self, base, hidden_nodes, size=(640, 480), near_far=(0.01, 10000.0), hfov=60):
+        # renders everything
+        self.all_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
+                                                     size=size, near_far=near_far, hfov=hfov)
+        # renders the non-hidden nodes
+        self.visible_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
+                                                         size=size, near_far=near_far, hfov=hfov)
+        self.cam = (self.all_camera_sensor.cam, self.visible_camera_sensor.cam)
+
+        non_hidden_mask = BitMask32(0x3FFFFFFF)
+        hidden_mask = BitMask32(0x40000000)
+
+        self.all_camera_sensor.cam.node().setCameraMask(non_hidden_mask)
+        self.visible_camera_sensor.cam.node().setCameraMask(hidden_mask)
+
+        for hidden_node in hidden_nodes:
+            hidden_node.show(non_hidden_mask | hidden_mask)
+            hidden_node.hide(hidden_mask)
+
+    def observe(self):
+        depth_image, = self.all_camera_sensor.observe()
+        non_hidden_depth_image, = self.visible_camera_sensor.observe()
+        mask = (np.logical_and(non_hidden_depth_image < 1,
+                               non_hidden_depth_image <= depth_image
+                               ) * 255).astype(np.uint8)
+        return mask, depth_image, non_hidden_depth_image

@@ -22,11 +22,16 @@ class Env(object):
         """
         raise NotImplementedError
 
-    def reset(self):
+    def reset(self, state=None):
         """
         Resets the state of the environment and returns an initial observation
 
-        The environment is reset to an arbitrary state (which may be chosen at
+        Args:
+            state: numpy array, which is the state this environment should be
+                set to (if specified)
+
+        If state is specified, the environment is reset to that state,
+        otherwise, it is set to an arbitrary state (which may be chosen at
         random).
 
         Returns:
@@ -61,6 +66,7 @@ class Env(object):
             >>> assert np.allclose(state, self.get_state())
 
         """
+        raise NotImplementedError
 
     def render(self):
         pass
