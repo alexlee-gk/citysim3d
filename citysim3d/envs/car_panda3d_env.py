@@ -14,6 +14,8 @@ class CarPanda3dEnv(Panda3dEnv):
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
         self.model_names = model_names or ['camaro2']
+        if not isinstance(self.model_names, (tuple, list)):
+            raise ValueError('model_names should be a tuple or a list, but %r was given.' % model_names)
 
         # state
         self._speed = 1.0

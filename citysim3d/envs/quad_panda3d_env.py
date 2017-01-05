@@ -8,7 +8,7 @@ from citysim3d.utils import scale_crop_camera_parameters
 
 class SimpleQuadPanda3dEnv(Panda3dEnv):
     def __init__(self, action_space, sensor_names=None, offset=None,
-                 car_env_class=None, car_action_space=None, car_model_name=None,
+                 car_env_class=None, car_action_space=None, car_model_names=None,
                  app=None, dt=None):
         super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
@@ -16,10 +16,8 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.offset = np.array(offset) if offset is not None else np.array([0, -1 / np.tan(np.pi / 6), 1]) * 15
         self.car_env_class = car_env_class or GeometricCarPanda3dEnv
         self.car_action_space = car_action_space or BoxSpace(np.array([0.0, 0.0]), np.array([0.0, 0.0]))
-        self.car_model_name = car_model_name or ['camaro2']
-        if not isinstance(self.car_model_name, (tuple, list)):
-            self.car_model_name = [self.car_model_name]
-        self.car_env = self.car_env_class(self.car_action_space, sensor_names=[], model_names=self.car_model_name, app=self.app, dt=self.dt)
+        self.car_model_names = car_model_names or ['camaro2']
+        self.car_env = self.car_env_class(self.car_action_space, sensor_names=[], model_names=self.car_model_names, app=self.app, dt=self.dt)
         self.skybox_node = self.car_env.skybox_node
         self.city_node = self.car_env.city_node
         self.car_node = self.car_env.car_node
