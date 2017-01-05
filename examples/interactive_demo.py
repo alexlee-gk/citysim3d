@@ -92,7 +92,7 @@ def main():
                        'mazda6', 'mitsubishi_lancer_evo', 'sport']
     env = CustomSimpleQuadPanda3dEnv(action_space,
                                      sensor_names=[],  # empty sensor_names means no observations
-                                     car_model_name=car_model_names)
+                                     car_model_names=car_model_names)
 
     num_camera_modes = 3
     key_map = dict(left=False, right=False, up=False, down=False, camera_pressed=False, camera_mode=0)
