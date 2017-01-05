@@ -25,7 +25,7 @@ Install desired version of python 2 (e.g. 2.7.12). Make sure to use the `--enabl
 env PYTHON_CONFIGURE_OPTS="--enable-shared" pyenv install 2.7.12
 ```
 
-### Install Panda3D in Ubuntu 14.04
+### Install Panda3D in Ubuntu 14.04 and Ubuntu 16.04
 ```
 git clone git@github.com:panda3d/panda3d.git
 cd panda3d
@@ -42,7 +42,7 @@ echo /usr/lib/x86_64-linux-gnu/panda3d >> ~/.pyenv/versions/2.7.12/lib/python2.7
 #### Troubleshooting
 If the latest source of Panda3d doesn't build successfully, try using one of the stable versions.
 ```
-git checkout tags/v1.9.2
+git checkout tags/v1.9.3
 ```
 
 ### Install Panda3D in MacOS Sierra
@@ -82,16 +82,6 @@ export PYTHONPATH=$CITYSIM3D_DIR:$PYTHONPATH
 ```
 
 ## Download the 3D models
-There are two options for getting the 3D models, depending if you have the right permissions.
+Run the `models/download.py` script to download all the model files. 
 
-### Option 1
-Run the `models/download_all.py` script to download all the model files. You need to have the right permissions to access these files.
-
-### Option 2
-If you don't have the right permissions, you can run the `models/download_public.py` script to download all the models except for the city and skybox model.
-
-The city model is under <a href="https://3drt.com/license.htm" target="_blank">this license</a>. You can buy a copy of the 3D models <a href="http://3drt.com/store/environments/megacity-construction-kit.html" target="_blank">here</a> and convert these two models to Panda3D's `.egg` format:
-- `levels/urban-level-02-medium.obj` to `path/to/citysim3d/models/levels/urban-level-02-medium.egg`
-- `skyboxes/01-clean-day/skybox-mesh.3DS` to `path/to/citysim3d/models/skyboxes/01-clean-day/skybox-mesh.egg`
-
-To convert the models, we imported each file to blender and then exported the model to the `.egg` format.
+The city and skybox models are under <a href="https://3drt.com/license.htm" target="_blank">this license</a> and those files are encrypted inside `models.mf`. The original city and skybox models came from <a href="http://3drt.com/store/environments/megacity-construction-kit.html" target="_blank">here</a>.
