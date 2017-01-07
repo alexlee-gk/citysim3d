@@ -1,48 +1,32 @@
 import numpy as np
 from citysim3d.envs import Env
-from citysim3d.envs import Panda3dMaskCameraSensor
 from citysim3d.spaces import DictSpace
 
 
 class ServoingEnv(Env):
-    def __init__(self, env, max_time_steps=100):
+    def __init__(self, env, max_time_steps=100, distance_threshold=4.0):
+        """
+        env should implement get_relative_target_position, get_focal_length and
+        is_in_view for this instance to return a reward that is not None
+        """
         self.__dict__.update(env.__dict__)
         self.env = env
         # only non-target observation spaces
         assert isinstance(self.env.observation_space, DictSpace)
         self._observation_space = self.env.observation_space
         self._target_obs = None
+        self._target_pos = None  # position of the target relative to the camera
         self._t = 0
-        self._T = max_time_steps
-        if not hasattr(self, 'mask_camera_sensor'):
-            self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                              size=self.camera_sensor.size,
-                                                              near_far=(self.camera_sensor.lens.getNear(), self.camera_sensor.lens.getFar()),
-                                                              hfov=self.camera_sensor.lens.getFov())
-        for cam in self.mask_camera_sensor.cam:
-            cam.reparentTo(self.camera_sensor.cam)
+        self.max_time_steps = max_time_steps
+        self.distance_threshold = distance_threshold
 
     def get_image_formation_error(self):
-        # target relative to camera
-        camera_to_target_T = np.array(self.car_node.getTransform(self.camera_node).getMat()).T
-        target_direction = - camera_to_target_T[:3, 3]
-        x_error = (target_direction[0] / target_direction[1])
-        y_error = (target_direction[2] / target_direction[1])
-        z_error = (1.0 / np.linalg.norm(target_direction) - 1.0 / np.linalg.norm(self.offset))
-        # use this focal length for compatibility with the original experiments
-        fov_y = np.pi / 4.
-        height = 480
-        focal_length = height / (2. * np.tan(fov_y / 2.))
-        # TODO: the experiments uses the norm of target_direction but the paper uses the z-value of it
-        # TODO: use the actual target_direction of the first time step instead of assuming anything about it
-        # TODO: use the action focal length
-        # z_error = 1.0 / target_direction[1] - 1.0 / np.linalg.norm(self.offset))
-        # focal_length = self.camera_sensor.focal_length
-        return focal_length * np.linalg.norm([x_error, y_error, z_error])
-
-    def is_in_view(self):
-        mask = self.mask_camera_sensor.observe()[0]
-        return np.any(mask)
+        pos = self.env.get_relative_target_position()
+        x_error = pos[0] / pos[1]
+        y_error = pos[2] / pos[1]
+        z_error = 1.0 / pos[1] - 1.0 / self._target_pos[1]
+        # self._target_pos[0] and self._target_pos[2] are assumed to be zero (up to errors due to numerical precision)
+        return self.env.get_focal_length() * np.linalg.norm([x_error, y_error, z_error])
 
     def _step(self, action):
         return self.env.step(action)
@@ -51,17 +35,19 @@ class ServoingEnv(Env):
         obs, reward, done, info = self._step(action)
         assert isinstance(obs, dict)
         if reward is None:
-            camera_to_target_T = np.array(self.car_node.getTransform(self.camera_node).getMat()).T
-            target_direction = - camera_to_target_T[:3, 3]
             self._t += 1
-            done = done or \
-                obs.get('points') is None or \
-                self._t >= self._T or \
-                not self.is_in_view() or \
-                np.linalg.norm(target_direction) < 4.0
-            reward = - self.get_image_formation_error()
-            if done:
-                reward *= self._T - self._t + 1
+            try:
+                done = done or \
+                    self._t >= self.max_time_steps or \
+                    not self.env.is_in_view() or \
+                    np.linalg.norm(self.env.get_relative_target_position()) < self.distance_threshold
+                reward = - self.get_image_formation_error()
+                if done:
+                    reward *= self.max_time_steps - self._t + 1
+            except AttributeError:
+                # return None for the reward if self.env doesn't implement
+                # get_relative_target_position, get_focal_length or is_in_view
+                pass
         obs.update(self._target_obs)
         return obs, reward, done, info
 
@@ -69,6 +55,7 @@ class ServoingEnv(Env):
         obs = self.env.reset(state=state)
         assert isinstance(obs, dict)
         self._target_obs = {'target_' + k: v for (k, v) in obs.items()}
+        self._target_pos = self.env.get_relative_target_position()
         self._t = 0
         obs.update(self._target_obs)
         return obs

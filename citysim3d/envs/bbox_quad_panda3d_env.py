@@ -1,8 +1,7 @@
 import numpy as np
 import itertools
 from citysim3d.envs import SimpleQuadPanda3dEnv
-from citysim3d.envs import Panda3dMaskCameraSensor
-from citysim3d.spaces import BoxSpace, TupleSpace
+from citysim3d.spaces import BoxSpace
 from citysim3d.utils.panda3d_util import extrude_depth, xy_to_points2d
 
 
@@ -20,13 +19,6 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
 
         self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]),
                                                             np.array([np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]))
-
-        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                          size=self.camera_sensor.size,
-                                                          near_far=(self.camera_sensor.lens.getNear(), self.camera_sensor.lens.getFar()),
-                                                          hfov=self.camera_sensor.lens.getFov())
-        for cam in self.mask_camera_sensor.cam:
-            cam.reparentTo(self.camera_sensor.cam)
 
     def step(self, action):
         obs, reward, done, info = super(BboxSimpleQuadPanda3dEnv, self).step(action)

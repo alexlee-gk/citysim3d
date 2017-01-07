@@ -1,9 +1,8 @@
 import numpy as np
 from panda3d.core import AmbientLight, PointLight
-from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor, GeometricCarPanda3dEnv
+from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor, Panda3dMaskCameraSensor, GeometricCarPanda3dEnv
 from citysim3d.spaces import BoxSpace, DictSpace
 import citysim3d.utils.transformations as tf
-from citysim3d.utils import scale_crop_camera_parameters
 
 
 class SimpleQuadPanda3dEnv(Panda3dEnv):
@@ -13,7 +12,8 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
-        self.offset = np.array(offset) if offset is not None else np.array([0, -1 / np.tan(np.pi / 6), 1]) * 15
+        self.offset = np.array(offset) if offset is not None \
+            else np.array([0, -1 / np.tan(np.pi / 6), 1]) * 15.05  # offset to quad
         self.car_env_class = car_env_class or GeometricCarPanda3dEnv
         self.car_action_space = car_action_space or BoxSpace(np.array([0.0, 0.0]), np.array([0.0, 0.0]))
         self.car_model_names = car_model_names or ['camaro2']
@@ -92,6 +92,14 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                                                                shape=(size[1], size[0], 1))
         self._observation_space = DictSpace(observation_spaces)
 
+        # used to compute is_in_view()
+        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
+                                                          size=self.camera_sensor.size,
+                                                          near_far=(self.camera_sensor.lens.getNear(),
+                                                                    self.camera_sensor.lens.getFar()),
+                                                          hfov=self.camera_sensor.lens.getFov())
+        for cam in self.mask_camera_sensor.cam:
+            cam.reparentTo(self.camera_sensor.cam)
         self._first_render = True
 
     @property
@@ -250,3 +258,13 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         for _ in range(self.app.graphicsEngine.getNumWindows()):
             self.app.graphicsEngine.renderFrame()
         self.app.graphicsEngine.syncFrame()
+
+    def get_relative_target_position(self):
+        return np.array(self.car_node.getTransform(self.camera_node).getPos())
+
+    def get_focal_length(self):
+        return self.camera_sensor.focal_length
+
+    def is_in_view(self):
+        mask = self.mask_camera_sensor.observe()[0]
+        return np.any(mask)

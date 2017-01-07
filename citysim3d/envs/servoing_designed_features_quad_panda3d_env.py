@@ -1,8 +1,7 @@
 import numpy as np
 import cv2
 from citysim3d.envs import SimpleQuadPanda3dEnv, ServoingEnv
-from citysim3d.envs import Panda3dMaskCameraSensor
-from citysim3d.spaces import BoxSpace, TupleSpace
+from citysim3d.spaces import BoxSpace
 from citysim3d.utils.panda3d_util import xy_depth_to_XYZ
 
 
@@ -22,25 +21,18 @@ def is_present(point_xy, mask):
 class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, ServoingEnv):
     def __init__(self, action_space, sensor_names=None, offset=None,
                  feature_type=None, filter_features=None, max_time_steps=100,
-                 car_env_class=None, car_action_space=None, car_model_name=None,
+                 car_env_class=None, car_action_space=None, car_model_names=None,
                  app=None, dt=None):
         super(ServoingDesignedFeaturesSimpleQuadPanda3dEnv, self).__init__(action_space,
                                                                            sensor_names=sensor_names,
                                                                            offset=offset,
                                                                            car_env_class=car_env_class,
                                                                            car_action_space=car_action_space,
-                                                                           car_model_name=car_model_name,
+                                                                           car_model_names=car_model_names,
                                                                            app=app, dt=dt)
 
         self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]),
                                                             np.array([np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]))
-
-        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                          size=self.camera_sensor.size,
-                                                          near_far=(self.camera_sensor.lens.getNear(), self.camera_sensor.lens.getFar()),
-                                                          hfov=self.camera_sensor.lens.getFov())
-        for cam in self.mask_camera_sensor.cam:
-            cam.reparentTo(self.camera_sensor.cam)
 
         self.filter_features = True if filter_features is None else False
         self._feature_type = feature_type or 'sift'
@@ -83,10 +75,6 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
     @property
     def target_descriptors(self):
         return self._target_descriptors
-
-    def is_in_view(self):
-        mask = self.mask_camera_sensor.observe()[0]
-        return np.any(mask)
 
     def _step(self, action):
         return SimpleQuadPanda3dEnv.step(self, action)

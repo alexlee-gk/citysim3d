@@ -50,32 +50,32 @@ def main():
                                              axis=[0, 0, 1])
     if args.reset_states_fname is None:
         reset_states = [None] * args.num_trajs
-        car_model_name = None
+        car_model_names = None
     else:
         with open(args.reset_states_fname, 'rb') as states_file:
             reset_states = pickle.load(states_file)
             if isinstance(reset_states, dict):
-                car_model_name = reset_states['car_model_name']
+                car_model_names = reset_states['car_model_name']
                 reset_states = reset_states['reset_states']
             else:
                 if os.path.basename(args.reset_states_fname) == 'reset_states.pkl':
-                    car_model_name = ['camaro2', 'mazda6', 'sport', 'kia_rio_blue', 'kia_rio_red', 'kia_rio_white']
+                    car_model_names = ['camaro2', 'mazda6', 'sport', 'kia_rio_blue', 'kia_rio_red', 'kia_rio_white']
                 elif os.path.basename(args.reset_states_fname) == 'reset_states_hard.pkl':
-                    car_model_name = ['kia_rio_silver', 'kia_rio_yellow', 'mitsubishi_lancer_evo']
+                    car_model_names = ['kia_rio_silver', 'kia_rio_yellow', 'mitsubishi_lancer_evo']
                 else:
-                    car_model_name = None
+                    car_model_names = None
     if args.env == 'bbox':
-        env = BboxSimpleQuadPanda3dEnv(action_space, car_model_name=car_model_name)
+        env = BboxSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names)
         env = ServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'bbox3d':
-        env = Bbox3dSimpleQuadPanda3dEnv(action_space, car_model_name=car_model_name)
+        env = Bbox3dSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names)
         env = ServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'designed':
         env = ServoingDesignedFeaturesSimpleQuadPanda3dEnv(action_space,
                                                            feature_type=args.feature_type,
                                                            filter_features=args.filter_features,
                                                            max_time_steps=args.num_steps,
-                                                           car_model_name=car_model_name)
+                                                           car_model_names=car_model_names)
     else:
         raise ValueError('Invalid environment option %s' % args.env)
     env = NormalizedEnv(env)
