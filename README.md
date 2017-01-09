@@ -82,6 +82,6 @@ export PYTHONPATH=$CITYSIM3D_DIR:$PYTHONPATH
 ```
 
 ## Download the 3D models
-Run the `models/download.py` script to download all the model files. 
+Run the `models/download.py` script to download all the model files. After running this script, you should end up with the file `models.mf` and the directories `megacity-urban-construction-kit` and `vehicles` in the `path/to/citysim3d/models` directory.
 
 The city and skybox models are under <a href="https://3drt.com/license.htm" target="_blank">this license</a> and those files are encrypted inside `models.mf`. The original city and skybox models came from <a href="http://3drt.com/store/environments/megacity-construction-kit.html" target="_blank">here</a>.
