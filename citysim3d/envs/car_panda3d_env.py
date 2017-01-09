@@ -59,6 +59,8 @@ class CarPanda3dEnv(Panda3dEnv):
                     observation_spaces[sensor_name] = BoxSpace(self.car_camera_node.node().getLens().getNear(),
                                                                self.car_camera_node.node().getLens().getFar(),
                                                                shape=(480, 640, 1))
+        else:
+            self.camera_sensor = None
         self._observation_space = DictSpace(observation_spaces)
 
         self._first_render = True

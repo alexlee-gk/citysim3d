@@ -54,10 +54,10 @@ class Panda3dEnv(Env):
 
 
 class Panda3dCameraSensor(object):
-    def __init__(self, base, color=True, depth=False, size=(640, 480), near_far=(0.01, 10000.0), hfov=60):
+    def __init__(self, base, color=True, depth=False, size=(640, 480), near_far=(0.01, 10000.0), hfov=60, title=None):
         self.size = size
         winprops = WindowProperties.size(*self.size)
-        winprops.setTitle('Camera Sensor')
+        winprops.setTitle(title or 'Camera Sensor')
         fbprops = FrameBufferProperties()
         # Request 8 RGB bits, 8 alpha bits, and a depth buffer.
         fbprops.setRgbColor(True)
@@ -146,10 +146,12 @@ class Panda3dMaskCameraSensor(object):
     def __init__(self, base, hidden_nodes, size=(640, 480), near_far=(0.01, 10000.0), hfov=60):
         # renders everything
         self.all_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
-                                                     size=size, near_far=near_far, hfov=hfov)
+                                                     size=size, near_far=near_far, hfov=hfov,
+                                                     title='All Camera Sensor (MaskCameraSensor)')
         # renders the non-hidden nodes
         self.visible_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
-                                                         size=size, near_far=near_far, hfov=hfov)
+                                                         size=size, near_far=near_far, hfov=hfov,
+                                                         title='Visible Camera Sensor (MaskCameraSensor)')
         self.cam = (self.all_camera_sensor.cam, self.visible_camera_sensor.cam)
 
         non_hidden_mask = BitMask32(0x3FFFFFFF)

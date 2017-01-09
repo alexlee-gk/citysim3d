@@ -90,16 +90,19 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     observation_spaces[sensor_name] = BoxSpace(self.quad_camera_node.node().getLens().getNear(),
                                                                self.quad_camera_node.node().getLens().getFar(),
                                                                shape=(size[1], size[0], 1))
-        self._observation_space = DictSpace(observation_spaces)
 
-        # used to compute is_in_view()
-        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                          size=self.camera_sensor.size,
-                                                          near_far=(self.camera_sensor.lens.getNear(),
-                                                                    self.camera_sensor.lens.getFar()),
-                                                          hfov=self.camera_sensor.lens.getFov())
-        for cam in self.mask_camera_sensor.cam:
-            cam.reparentTo(self.camera_sensor.cam)
+            # used to compute is_in_view()
+            self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
+                                                              size=self.camera_sensor.size,
+                                                              near_far=(self.camera_sensor.lens.getNear(),
+                                                                        self.camera_sensor.lens.getFar()),
+                                                              hfov=self.camera_sensor.lens.getFov())
+            for cam in self.mask_camera_sensor.cam:
+                cam.reparentTo(self.camera_sensor.cam)
+        else:
+            self.camera_sensor = None
+            self.mask_camera_sensor = None
+        self._observation_space = DictSpace(observation_spaces)
         self._first_render = True
 
     @property
