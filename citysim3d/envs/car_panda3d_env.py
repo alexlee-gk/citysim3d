@@ -81,6 +81,7 @@ class CarPanda3dEnv(Panda3dEnv):
             self.skybox_node.reparentTo(self.app.render)
         except IOError:
             print("Some models are missing. Skipping loading file skyboxes/01-clean-day/skybox-mesh")
+            self.skybox_node = None
 
         try:
             self.city_node = self.app.loader.loadModel("levels/urban-level-02-medium")
@@ -96,6 +97,7 @@ class CarPanda3dEnv(Panda3dEnv):
             self.city_node.setLight(self.sun_light)
         except IOError:
             print("Some models are missing. Skipping loading file levels/urban-level-02-medium")
+            self.city_node = None
 
     def _load_and_get_car_local(self, model_name):
         car_local_node = self.app.loader.loadModel(model_name)
