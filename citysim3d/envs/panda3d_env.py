@@ -34,6 +34,7 @@ class Panda3dEnv(Env):
             mount_desc = mount_desc.split(' ')
             physical_filename, mount_point = mount_desc[:2]
             physical_filename = os.path.expandvars(physical_filename)
+            mount_point = os.path.expandvars(mount_point)
             if len(mount_desc) > 2:
                 options = mount_desc[2]
             else:
