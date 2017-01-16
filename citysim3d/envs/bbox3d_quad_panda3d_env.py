@@ -9,7 +9,7 @@ class Bbox3dSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
     def __init__(self, *args, **kwargs):
         super(Bbox3dSimpleQuadPanda3dEnv, self).__init__(*args, **kwargs)
 
-        self._observation_space.spaces['points'] = BoxSpace(-np.inf, np.inf, shape=(3,))
+        self._observation_space.spaces['points'] = BoxSpace(-np.inf, np.inf, shape=(8, 3))
 
         # uncomment to visualize bounding box (makes rendering slow)
         # self.car_env._car_local_node.showTightBounds()
