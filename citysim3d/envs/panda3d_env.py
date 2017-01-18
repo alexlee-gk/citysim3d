@@ -22,7 +22,7 @@ class Panda3dEnv(Env):
 
         # setup visualization camera
         vfov = 45
-        hfov = vfov * float(self.app.win.get_size()[0]) / float(self.app.win.get_size()[1])
+        hfov = vfov * float(self.app.win.getSize()[0]) / float(self.app.win.getSize()[1])
         self.app.camLens.setFov(hfov, vfov)
         self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
 
@@ -55,9 +55,11 @@ class Panda3dEnv(Env):
 
 
 class Panda3dCameraSensor(object):
-    def __init__(self, base, color=True, depth=False, size=(640, 480), near_far=(0.01, 10000.0), hfov=60, title=None):
-        self.size = size
-        winprops = WindowProperties.size(*self.size)
+    def __init__(self, base, color=True, depth=False, size=None, near_far=None, hfov=None, title=None):
+        size = size or (640, 480)
+        near_far = near_far or (0.01, 10000.0)
+        hfov = hfov or 60
+        winprops = WindowProperties.size(*size)
         winprops.setTitle(title or 'Camera Sensor')
         fbprops = FrameBufferProperties()
         # Request 8 RGB bits, 8 alpha bits, and a depth buffer.
@@ -144,7 +146,7 @@ class Panda3dCameraSensor(object):
 
 
 class Panda3dMaskCameraSensor(object):
-    def __init__(self, base, hidden_nodes, size=(640, 480), near_far=(0.01, 10000.0), hfov=60):
+    def __init__(self, base, hidden_nodes, size=None, near_far=None, hfov=None):
         # renders everything
         self.all_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
                                                      size=size, near_far=near_far, hfov=hfov,

@@ -19,20 +19,19 @@ def is_present(point_xy, mask):
 
 
 class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, ServoingEnv):
-    def __init__(self, action_space, sensor_names=None, offset=None,
-                 feature_type=None, filter_features=None, max_time_steps=100,
-                 car_env_class=None, car_action_space=None, car_model_names=None,
-                 app=None, dt=None):
-        super(ServoingDesignedFeaturesSimpleQuadPanda3dEnv, self).__init__(action_space,
-                                                                           sensor_names=sensor_names,
-                                                                           offset=offset,
-                                                                           car_env_class=car_env_class,
-                                                                           car_action_space=car_action_space,
-                                                                           car_model_names=car_model_names,
-                                                                           app=app, dt=dt)
+    def __init__(self, action_space, feature_type=None, filter_features=None,
+                 max_time_steps=100, distance_threshold=4.0, **kwargs):
+        """
+        filter_features indicates whether to filter out key points that are not
+        on the object in the current image. Key points in the target image are
+        always filtered out.
+        """
+        SimpleQuadPanda3dEnv.__init__(self, action_space, **kwargs)
+        ServoingEnv.__init__(self, env=self, max_time_steps=max_time_steps, distance_threshold=distance_threshold)
 
-        self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]),
-                                                            np.array([np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]))
+        lens = self.camera_node.node().getLens()
+        self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, lens.getNear(), -np.inf]),
+                                                            np.array([np.inf, lens.getFar(), np.inf]))
 
         self.filter_features = True if filter_features is None else False
         self._feature_type = feature_type or 'sift'
@@ -61,9 +60,6 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
         self._target_key_points = None
         self._target_descriptors = None
 
-        self._t = 0
-        self._T = max_time_steps
-
     @property
     def feature_type(self):
         return self._feature_type
@@ -77,39 +73,37 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
         return self._target_descriptors
 
     def _step(self, action):
-        return SimpleQuadPanda3dEnv.step(self, action)
+        obs, reward, done, info = SimpleQuadPanda3dEnv.step(self, action)
+        done = done or obs.get('points') is None
+        return obs, reward, done, info
 
     def step(self, action):
         return ServoingEnv.step(self, action)
 
     def reset(self, state=None):
-        self._target_obs = None
         self._target_key_points = None
         self._target_descriptors = None
+        self._target_obs = None
+        self._target_pos = self.get_relative_target_position()
         self._t = 0
-        return super(ServoingDesignedFeaturesSimpleQuadPanda3dEnv, self).reset(state=state)
+        return SimpleQuadPanda3dEnv.reset(self, state=state)
 
     def observe(self):
-        obs = super(ServoingDesignedFeaturesSimpleQuadPanda3dEnv, self).observe()
+        obs = SimpleQuadPanda3dEnv.observe(self)
         assert isinstance(obs, dict)
 
-        mask, depth_image, _ = self.mask_camera_sensor.observe()
+        mask, depth_image, _ = self.mask_camera_sensor.observe()  # used to filter out key points
         if self._target_obs is None:
             self._target_obs = {'target_' + k: v for (k, v) in obs.items()}
-            key_points, descriptors = self._feature_extractor.detectAndCompute(self._target_obs['target_image'], None)
-            self._target_key_points = []
-            self._target_descriptors = []
-            for key_point, descriptor in zip(key_points, descriptors):
-                if is_present(key_point.pt, mask):
-                    self._target_key_points.append(key_point)
-                    self._target_descriptors.append(descriptor)
-            self._target_descriptors = np.asarray(self._target_descriptors)
+            self._target_key_points, self._target_descriptors = \
+                self._feature_extractor.detectAndCompute(self._target_obs['target_image'], mask)
 
-        key_points, descriptors = self._feature_extractor.detectAndCompute(obs['image'], None)
-        matches = self._matcher.match(descriptors, self._target_descriptors)
-
-        if self.filter_features:
-            matches = [match for match in matches if is_present(key_points[match.queryIdx].pt, mask)]
+        if self._target_key_points:
+            key_points, descriptors = \
+                self._feature_extractor.detectAndCompute(obs['image'], mask if self.filter_features else None)
+            matches = self._matcher.match(descriptors, self._target_descriptors)
+        else:
+            matches = False
 
         if matches:
             key_points_xy = np.array([key_points[match.queryIdx].pt for match in matches])
@@ -118,6 +112,9 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
             target_key_points_XYZ = xy_depth_to_XYZ(self.camera_sensor.lens, target_key_points_xy, depth_image)
             obs['points'] = key_points_XYZ
             obs['target_points'] = target_key_points_XYZ
+        else:
+            obs['points'] = None
+            obs['target_points'] = None
 
         obs.update(self._target_obs)
         return obs

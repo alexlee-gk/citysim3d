@@ -17,8 +17,9 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
     def __init__(self, *args, **kwargs):
         super(BboxSimpleQuadPanda3dEnv, self).__init__(*args, **kwargs)
 
-        self._observation_space.spaces['points'] = BoxSpace(np.array([[-np.inf, self.quad_camera_node.node().getLens().getNear(), -np.inf]] * 4),
-                                                            np.array([[np.inf, self.quad_camera_node.node().getLens().getFar(), np.inf]] * 4))
+        lens = self.camera_node.node().getLens()
+        self._observation_space.spaces['points'] = BoxSpace(np.array([[-np.inf, lens.getNear(), -np.inf]] * 4),
+                                                            np.array([[np.inf, lens.getFar(), np.inf]] * 4))
 
     def step(self, action):
         obs, reward, done, info = super(BboxSimpleQuadPanda3dEnv, self).step(action)

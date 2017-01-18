@@ -18,8 +18,8 @@ loadPrcFile(os.path.expandvars('${CITYSIM3D_DIR}/config.prc'))
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('env', type=str, choices=('bbox', 'bbox3d', 'designed'))
-    parser.add_argument('--feature_type', type=str, choices=('sift', 'surf', 'orb'), help='[default=sift] features to use for the hand-designed feature environment.')
-    parser.add_argument('--filter_features', type=int, help='[default=1] whether to filter out feature key points based on ground truth information for the hand-designed feature environment.')
+    parser.add_argument('--feature_type', type=str, choices=('sift', 'surf', 'orb'), help='[default=sift] (only valid for env=designed)')
+    parser.add_argument('--filter_features', type=int, help='[default=1] whether to filter out key points that are not on the object in the current image (only valid for env=designed)')
     parser.add_argument('--use_3d_pol', action='store_true', help='use policy that minimizes the error of 3d points (as opposed to projected 2d points)')
     parser.add_argument('--use_car_dynamics', '--use_car_dyn', action='store_true')
     parser.add_argument('--lambda_', '--lambda', type=float, default=1.0)
@@ -64,18 +64,22 @@ def main():
                     car_model_names = ['kia_rio_silver', 'kia_rio_yellow', 'mitsubishi_lancer_evo']
                 else:
                     car_model_names = None
+    camera_size, camera_hfov = putil.scale_crop_camera_parameters((640, 480), 60.0, crop_size=(int(32 / 0.125),) * 2)
     if args.env == 'bbox':
-        env = BboxSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names)
+        env = BboxSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
+                                       camera_size=camera_size, camera_hfov=camera_hfov)
         env = ServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'bbox3d':
-        env = Bbox3dSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names)
+        env = Bbox3dSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
+                                         camera_size=camera_size, camera_hfov=camera_hfov)
         env = ServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'designed':
         env = ServoingDesignedFeaturesSimpleQuadPanda3dEnv(action_space,
                                                            feature_type=args.feature_type,
                                                            filter_features=args.filter_features,
                                                            max_time_steps=args.num_steps,
-                                                           car_model_names=car_model_names)
+                                                           car_model_names=car_model_names,
+                                                           camera_size=camera_size, camera_hfov=camera_hfov)
     else:
         raise ValueError('Invalid environment option %s' % args.env)
     env = NormalizedEnv(env)
@@ -91,7 +95,7 @@ def main():
         errors_row_format = '{:>30}{:>15.4f}'
         print(errors_header_format.format('(traj_iter, step_iter)', 'reward'))
     done = False
-    esd_rewards = []
+    discounted_returns = []
     for traj_iter, reset_state in zip(range(args.num_trajs), reset_states):  # whichever is shorter
         if args.verbose:
             print('=' * 45)
@@ -136,32 +140,33 @@ def main():
 
                 action = pol.act(obs)
 
-                obs, reward, epsisode_done, _ = env.step(action)
+                obs, reward, episode_done, _ = env.step(action)
                 rewards.append(reward)
                 if args.verbose:
                     print(errors_row_format.format(str((traj_iter, step_iter)), reward))
-                if epsisode_done:
-                    break
-                if done:
+                if done or episode_done:
                     break
             except KeyboardInterrupt:
                 break
-        esd_reward = np.array(rewards).dot(args.gamma ** np.arange(len(rewards)))
+        discounted_return = np.array(rewards).dot(args.gamma ** np.arange(len(rewards)))
         if args.verbose:
             print('-' * 45)
-            print(errors_row_format.format('esd_rewards', esd_reward))
-        esd_rewards.append(esd_reward)
+            print(errors_row_format.format('discounted return', discounted_return))
+        discounted_returns.append(discounted_return)
         if done:
             break
     if args.verbose:
         print('=' * 45)
-        print(errors_row_format.format('mean esd_rewards', np.mean(esd_rewards)))
+        print(errors_row_format.format('mean discounted return', np.mean(discounted_returns)))
 
     if args.output_fname:
         import csv
         with open(args.output_fname, 'ab') as csvfile:
             writer = csv.writer(csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-            writer.writerow([str(args.lambda_), str(np.mean(esd_rewards))] + [str(esd_reward) for esd_reward in esd_rewards])
+            writer.writerow([str(args.lambda_),
+                             str(np.mean(discounted_returns)),
+                             str(np.std(discounted_returns) / np.sqrt(len(discounted_returns)))] +
+                            [str(discounted_return) for discounted_return in discounted_returns])
 
 
 if __name__ == '__main__':

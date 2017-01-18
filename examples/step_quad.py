@@ -1,4 +1,5 @@
 import os
+import time
 import numpy as np
 from panda3d.core import loadPrcFile
 from citysim3d.envs import SimpleQuadPanda3dEnv
@@ -16,6 +17,7 @@ def main():
                                              axis=[0, 0, 1])
     env = SimpleQuadPanda3dEnv(action_space)
 
+    start_time = time.time()
     num_trajs = 10
     num_steps = 100
     for traj_iter in range(num_trajs):
@@ -24,6 +26,7 @@ def main():
             action = action_space.sample()
             env.step(action)
             env.render()
+    print("average FPS: {}".format(num_trajs * (num_steps + 1) / (time.time() - start_time)))
 
 
 if __name__ == '__main__':

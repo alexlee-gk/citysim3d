@@ -9,7 +9,8 @@ import citysim3d.utils.transformations as tf
 
 
 class CarPanda3dEnv(Panda3dEnv):
-    def __init__(self, action_space, sensor_names=None, model_names=None, app=None, dt=None):
+    def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
+                 model_names=None, app=None, dt=None):
         super(CarPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
@@ -46,19 +47,19 @@ class CarPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.car_camera_sensor = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth)
-            self.car_camera_node = self.camera_node = self.car_camera_sensor.cam
-            self.car_camera_node.reparentTo(self.car_node)
-            self.car_camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
-            self.car_camera_node.setName('car_camera')
+            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=camera_size, hfov=camera_hfov)
+            self.camera_node = self.camera_sensor.cam
+            self.camera_node.reparentTo(self.car_node)
+            self.camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
+            self.camera_node.setName('car_camera')
 
+            lens = self.camera_node.node().getLens()
+            film_size = tuple(int(s) for s in lens.getFilmSize())
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
-                    observation_spaces[sensor_name] = BoxSpace(0, 255, shape=(480, 640, 3), dtype=np.uint8)
+                    observation_spaces[sensor_name] = BoxSpace(0, 255, shape=film_size[::-1] + (3,), dtype=np.uint8)
                 elif sensor_name == 'depth_image':
-                    observation_spaces[sensor_name] = BoxSpace(self.car_camera_node.node().getLens().getNear(),
-                                                               self.car_camera_node.node().getLens().getFar(),
-                                                               shape=(480, 640, 1))
+                    observation_spaces[sensor_name] = BoxSpace(lens.getNear(), lens.getFar(), shape=film_size[::-1] + (1,))
         else:
             self.camera_sensor = None
         self._observation_space = DictSpace(observation_spaces)
@@ -190,9 +191,9 @@ class CarPanda3dEnv(Panda3dEnv):
         self.app.cam.lookAt(target_node)
 
         # render observation window(s)
-        for _ in range(self.car_camera_sensor.graphics_engine.getNumWindows()):
-            self.car_camera_sensor.graphics_engine.renderFrame()
-        self.car_camera_sensor.graphics_engine.syncFrame()
+        for _ in range(self.camera_sensor.graphics_engine.getNumWindows()):
+            self.camera_sensor.graphics_engine.renderFrame()
+        self.camera_sensor.graphics_engine.syncFrame()
 
         # render main window(s)
         for _ in range(self.app.graphicsEngine.getNumWindows()):

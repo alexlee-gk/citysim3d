@@ -21,7 +21,7 @@ def add_instructions(app, pos, msg):
 
 def as_one(boolean):
     """ Maps True to 1 and False to -1 """
-    boolean = not not boolean  # ensure it's a boolean
+    boolean = bool(boolean)  # ensure it's a boolean
     return 2 * int(boolean) - 1
 
 

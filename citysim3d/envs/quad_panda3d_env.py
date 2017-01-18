@@ -6,8 +6,8 @@ import citysim3d.utils.transformations as tf
 
 
 class SimpleQuadPanda3dEnv(Panda3dEnv):
-    def __init__(self, action_space, sensor_names=None, offset=None,
-                 car_env_class=None, car_action_space=None, car_model_names=None,
+    def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
+                 offset=None, car_env_class=None, car_action_space=None, car_model_names=None,
                  app=None, dt=None):
         super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
@@ -33,20 +33,6 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
         observation_spaces = dict()
         if self.sensor_names:
-            # orig_size = (640, 480)
-            # orig_hfov = 60.0
-            # scale_size = 0.125
-            # crop_size = size = (32, 32)
-            # hfov = np.rad2deg(2 * np.arctan(np.tan(np.deg2rad(orig_hfov) / 2.) * crop_size[0] / orig_size[0] / scale_size))
-            # # size = orig_size
-            # # hfov = orig_hfov
-            #
-            # scale_size = 1.0
-            # crop_size = size = (32 * 8, 32 * 8)
-            # hfov = np.rad2deg(2 * np.arctan(np.tan(np.deg2rad(orig_hfov) / 2.) * crop_size[0] / orig_size[0] / scale_size))
-
-            # size, hfov = scale_crop_camera_parameters((640, 480), 60.0, crop_size=(int(32 / 0.125),) * 2)
-
             color = depth = False
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
@@ -55,48 +41,26 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.quad_camera_sensor = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth)
-            self.quad_camera_node = self.camera_node = self.quad_camera_sensor.cam
-            self.quad_camera_node.reparentTo(self.quad_node)
-            self.quad_camera_node.setPos(tuple(np.array([0, -1 / np.tan(np.pi / 6), 1]) * -0.05))  # slightly in front of the quad
-            self.quad_camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 6, np.array([1, 0, 0]))))
-            self.quad_camera_node.setName('quad_camera')
+            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=camera_size, hfov=camera_hfov)
+            self.camera_node = self.camera_sensor.cam
+            self.camera_node.reparentTo(self.quad_node)
+            self.camera_node.setPos(tuple(np.array([0, -1 / np.tan(np.pi / 6), 1]) * -0.05))  # slightly in front of the quad
+            self.camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 6, np.array([1, 0, 0]))))
+            self.camera_node.setName('quad_camera')
 
-            # # import IPython as ipy; ipy.embed()
-            #
-            # lens = self.quad_camera_sensor.lens
-            # orig_size = lens.getFilmSize()
-            # orig_hfov = lens.getFov()[0]
-            #
-            # scale_size = 0.125
-            # crop_size = (32, 32)
-            #
-            # # f = (orig_size[0] / 2.) / np.tan(np.deg2rad(orig_hfov) / 2.)
-            # # hfov = np.rad2deg(2 * np.arctan((crop_size[0] / 2.) / (f * scale_size)))
-            #
-            # hfov = np.rad2deg(2 * np.arctan(np.tan(np.deg2rad(orig_hfov) / 2.) * crop_size[0] / orig_size[0] / scale_size))
-            #
-            # self.quad_camera_sensor2 = self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=crop_size)
-            # self.quad_camera_sensor2.cam.reparentTo(self.quad_camera_node)
-            # lens2 = self.quad_camera_sensor2.lens
-            # # lens2.setFilmSize(*crop_size)
-            # lens2.setFov(hfov)
-
-            size = self.quad_camera_sensor.size
+            lens = self.camera_node.node().getLens()
+            film_size = tuple(int(s) for s in lens.getFilmSize())
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
-                    observation_spaces[sensor_name] = BoxSpace(0, 255, shape=(size[1], size[0], 3), dtype=np.uint8)
+                    observation_spaces[sensor_name] = BoxSpace(0, 255, shape=film_size[::-1] + (3,), dtype=np.uint8)
                 elif sensor_name == 'depth_image':
-                    observation_spaces[sensor_name] = BoxSpace(self.quad_camera_node.node().getLens().getNear(),
-                                                               self.quad_camera_node.node().getLens().getFar(),
-                                                               shape=(size[1], size[0], 1))
+                    observation_spaces[sensor_name] = BoxSpace(lens.getNear(), lens.getFar(), shape=film_size[::-1] + (1,))
 
             # used to compute is_in_view()
             self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                              size=self.camera_sensor.size,
-                                                              near_far=(self.camera_sensor.lens.getNear(),
-                                                                        self.camera_sensor.lens.getFar()),
-                                                              hfov=self.camera_sensor.lens.getFov())
+                                                              size=film_size,
+                                                              near_far=(lens.getNear(), lens.getFar()),
+                                                              hfov=lens.getFov())
             for cam in self.mask_camera_sensor.cam:
                 cam.reparentTo(self.camera_sensor.cam)
         else:
@@ -253,9 +217,9 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.app.cam.lookAt(target_node)
 
         # render observation window(s)
-        for _ in range(self.quad_camera_sensor.graphics_engine.getNumWindows()):
-            self.quad_camera_sensor.graphics_engine.renderFrame()
-        self.quad_camera_sensor.graphics_engine.syncFrame()
+        for _ in range(self.camera_sensor.graphics_engine.getNumWindows()):
+            self.camera_sensor.graphics_engine.renderFrame()
+        self.camera_sensor.graphics_engine.syncFrame()
 
         # render main window(s)
         for _ in range(self.app.graphicsEngine.getNumWindows()):

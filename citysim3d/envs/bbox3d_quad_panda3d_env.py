@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 from panda3d.core import Point3, BoundingBox
 from citysim3d.envs import SimpleQuadPanda3dEnv
-from citysim3d.spaces import BoxSpace, TupleSpace
+from citysim3d.spaces import BoxSpace
 
 
 class Bbox3dSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
