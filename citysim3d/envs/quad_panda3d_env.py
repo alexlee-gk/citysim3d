@@ -1,6 +1,6 @@
 import numpy as np
 from panda3d.core import AmbientLight, PointLight
-from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor, Panda3dMaskCameraSensor, GeometricCarPanda3dEnv
+from citysim3d.envs import Panda3dEnv, GeometricCarPanda3dEnv, Panda3dCameraSensor
 from citysim3d.spaces import BoxSpace, DictSpace
 import citysim3d.utils.transformations as tf
 
@@ -55,17 +55,8 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     observation_spaces[sensor_name] = BoxSpace(0, 255, shape=film_size[::-1] + (3,), dtype=np.uint8)
                 elif sensor_name == 'depth_image':
                     observation_spaces[sensor_name] = BoxSpace(lens.getNear(), lens.getFar(), shape=film_size[::-1] + (1,))
-
-            # used to compute is_in_view()
-            self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                              size=film_size,
-                                                              near_far=(lens.getNear(), lens.getFar()),
-                                                              hfov=lens.getFov())
-            for cam in self.mask_camera_sensor.cam:
-                cam.reparentTo(self.camera_sensor.cam)
         else:
             self.camera_sensor = None
-            self.mask_camera_sensor = None
         self._observation_space = DictSpace(observation_spaces)
         self._first_render = True
 
@@ -233,5 +224,4 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         return self.camera_sensor.focal_length
 
     def is_in_view(self):
-        mask = self.mask_camera_sensor.observe()[0]
-        return np.any(mask)
+        return self.camera_node.node().isInView(self.car_node.getTransform(self.camera_node).getPos())

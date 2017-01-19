@@ -1,6 +1,6 @@
 import numpy as np
 import cv2
-from citysim3d.envs import SimpleQuadPanda3dEnv, ServoingEnv
+from citysim3d.envs import SimpleQuadPanda3dEnv, ServoingEnv, Panda3dMaskCameraSensor
 from citysim3d.spaces import BoxSpace
 from citysim3d.utils.panda3d_util import xy_depth_to_XYZ
 
@@ -32,6 +32,13 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
         lens = self.camera_node.node().getLens()
         self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, lens.getNear(), -np.inf]),
                                                             np.array([np.inf, lens.getFar(), np.inf]))
+        film_size = tuple(int(s) for s in lens.getFilmSize())
+        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
+                                                          size=film_size,
+                                                          near_far=(lens.getNear(), lens.getFar()),
+                                                          hfov=lens.getFov())
+        for cam in self.mask_camera_sensor.cam:
+            cam.reparentTo(self.camera_sensor.cam)
 
         self.filter_features = True if filter_features is None else False
         self._feature_type = feature_type or 'sift'

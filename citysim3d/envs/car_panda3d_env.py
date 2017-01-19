@@ -441,6 +441,7 @@ class SimpleGeometricCarPanda3dEnv(CarPanda3dEnv):
 class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
     def __init__(self, action_space, sensor_names=None, model_names=None, app=None, dt=None):
         CarPanda3dEnv.__init__(self, action_space, sensor_names=sensor_names, model_names=model_names, app=app, dt=dt)
+        self._init_or_reset_cached_properties()
         self._graph_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
                                                        'urban-level-02-medium-road-directed-graph.dae')
         self._faces_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
@@ -457,41 +458,67 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
         self._start_ind, self._middle_ind, self._end_ind = self.sample_vertex_inds()  # SimpleCarPanda3dEnv's start_ind and end_ind are CarPanda3dEnv's start_ind and middle_ind
         self.car_node.setPosQuat(*self.pos_quat)
 
+    def _init_or_reset_cached_properties(self):
+        self._middle_pos = None
+        self._start_rot = None
+        self._middle_rot = None
+        self._end_rot = None
+        self._start_T = None
+        self._middle_T = None
+        self._middle_local_pos = None
+        self._project_T = None
+        self._end_local_pos = None
+        self._max_turn_angle = None
+        self._left_turn = None
+        self._turn_dist_offset = None
+
     @property
     def middle_pos(self):
-        return self._points[self._middle_ind]
+        if self._middle_pos is None:
+            self._middle_pos = self._points[self._middle_ind]
+        return self._middle_pos
 
     @property
     def start_rot(self):
-        pt0 = self._points[self._start_ind]
-        pt1 = self._points[self._middle_ind]
-        return self._compute_rotation(pt1 - pt0, self._get_or_compute_edge_normal((self._start_ind, self._middle_ind)))
+        if self._start_rot is None:
+            pt0 = self._points[self._start_ind]
+            pt1 = self._points[self._middle_ind]
+            self._start_rot = self._compute_rotation(pt1 - pt0, self._get_or_compute_edge_normal((self._start_ind, self._middle_ind)))
+        return self._start_rot
 
     @property
     def middle_rot(self):
-        pt1 = self._points[self._middle_ind]
-        pt2 = self._points[self._end_ind]
-        return self._compute_rotation(pt2 - pt1, self._get_or_compute_edge_normal((self._middle_ind, self._end_ind)))
+        if self._middle_rot is None:
+            pt1 = self._points[self._middle_ind]
+            pt2 = self._points[self._end_ind]
+            self._middle_rot = self._compute_rotation(pt2 - pt1, self._get_or_compute_edge_normal((self._middle_ind, self._end_ind)))
+        return self._middle_rot
 
     @property
     def end_rot(self):
-        pt1 = self._points[self._middle_ind]
-        pt2 = self._points[self._end_ind]
-        return self._compute_rotation(pt2 - pt1, self._get_or_compute_edge_normal((self._middle_ind, self._end_ind)))
+        if self._end_rot is None:
+            pt1 = self._points[self._middle_ind]
+            pt2 = self._points[self._end_ind]
+            self._end_rot = self._compute_rotation(pt2 - pt1, self._get_or_compute_edge_normal((self._middle_ind, self._end_ind)))
+        return self._end_rot
 
     @property
     def start_T(self):
-        start_T = np.eye(4)
-        start_T[:3, :3] = self.start_rot
-        start_T[:3, 3] = self.start_pos
-        return start_T
+        if self._start_T is None:
+            start_T = np.eye(4)
+            start_T[:3, :3] = self.start_rot
+            start_T[:3, 3] = self.start_pos
+            self._start_T = start_T
+        return self._start_T
 
     @property
     def middle_T(self):
-        middle_T = np.eye(4)
-        middle_T[:3, :3] = self.middle_rot
-        middle_T[:3, 3] = self.middle_pos
-        return middle_T
+        if self._middle_T is None:
+            middle_T = np.eye(4)
+            middle_T[:3, :3] = self.middle_rot
+            middle_T[:3, 3] = self.middle_pos
+            self._middle_T = middle_T
+        return self._middle_T
 
     @property
     def start_local_pos(self):
@@ -501,9 +528,11 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
 
     @property
     def middle_local_pos(self):
-        # middle_local_pos = tf.inverse_matrix(self.start_T).dot(np.r_[self.middle_pos, 1])[:3]
-        # assert np.allclose(middle_local_pos[[0, 2]], 0.0)
-        return np.array([0, np.linalg.norm(self.middle_pos - self.start_pos)])
+        if self._middle_local_pos is None:
+            # middle_local_pos = tf.inverse_matrix(self.start_T).dot(np.r_[self.middle_pos, 1])[:3]
+            # assert np.allclose(middle_local_pos[[0, 2]], 0.0)
+            self._middle_local_pos = np.array([0, np.linalg.norm(self.middle_pos - self.start_pos)])
+        return self._middle_local_pos
 
     @property
     def project_T(self):
@@ -512,21 +541,25 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
         so that it is parallel to the first plane (defined by normal
         self.start_rot[:, 2]).
         """
-        axis = np.cross(self.middle_rot[:, 2], self.start_rot[:, 2])
-        angle = tf.angle_between_vectors(self.middle_rot[:, 2], self.start_rot[:, 2])
-        if np.isclose(angle, 0.0):
-            project_T = np.eye(4)
-        else:
-            project_T = tf.rotation_matrix(angle, axis, point=self.middle_pos)
-        # assert np.allclose(project_T.dot(self.middle_T)[:3, 3], self.middle_pos)
-        # assert np.allclose(project_T.dot(self.middle_T)[:3, 2], self.start_rot[:, 2], atol=1e-7)
-        return project_T
+        if self._project_T is None:
+            axis = np.cross(self.middle_rot[:, 2], self.start_rot[:, 2])
+            angle = tf.angle_between_vectors(self.middle_rot[:, 2], self.start_rot[:, 2])
+            if np.isclose(angle, 0.0):
+                project_T = np.eye(4)
+            else:
+                project_T = tf.rotation_matrix(angle, axis, point=self.middle_pos)
+            # assert np.allclose(project_T.dot(self.middle_T)[:3, 3], self.middle_pos)
+            # assert np.allclose(project_T.dot(self.middle_T)[:3, 2], self.start_rot[:, 2], atol=1e-7)
+            self._project_T = project_T
+        return self._project_T
 
     @property
     def end_local_pos(self):
-        end_local_pos = tf.inverse_matrix(self.start_T).dot(self.project_T.dot(np.r_[self.end_pos, 1]))
-        # assert np.allclose(end_local_pos[2], 0.0, atol=1e-5)
-        return end_local_pos[:2]
+        if self._end_local_pos is None:
+            end_local_pos = tf.inverse_matrix(self.start_T).dot(self.project_T.dot(np.r_[self.end_pos, 1]))
+            # assert np.allclose(end_local_pos[2], 0.0, atol=1e-5)
+            self._end_local_pos = end_local_pos[:2]
+        return self._end_local_pos
 
     @property
     def max_straight_dist(self):
@@ -535,9 +568,11 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
 
     @property
     def max_turn_angle(self):
-        angle = tf.angle_between_vectors(self.middle_local_pos - self.start_local_pos, self.end_local_pos - self.middle_local_pos)
-        assert 0 <= angle <= np.pi
-        return angle
+        if self._max_turn_angle is None:
+            angle = tf.angle_between_vectors(self.middle_local_pos - self.start_local_pos, self.end_local_pos - self.middle_local_pos)
+            assert 0 <= angle <= np.pi
+            self._max_turn_angle = angle
+        return self._max_turn_angle
 
     @property
     def turn_radius(self):
@@ -545,7 +580,9 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
 
     @property
     def left_turn(self):
-        return np.sign(np.cross(self.middle_local_pos - self.start_local_pos, self.end_local_pos - self.middle_local_pos))
+        if self._left_turn is None:
+            self._left_turn = np.sign(np.cross(self.middle_local_pos - self.start_local_pos, self.end_local_pos - self.middle_local_pos))
+        return self._left_turn
 
     @property
     def turn_dist_offset(self):
@@ -554,11 +591,13 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
         is the same the distance from the start of the next edge where the
         curve ends.
         """
-        if np.isclose(self.max_turn_angle, np.pi):  # U-turn
-            turn_dist_offset = 0.0
-        else:
-            turn_dist_offset = (self.dist_to_center) / np.tan((np.pi - self.max_turn_angle) / 2)
-        return turn_dist_offset
+        if self._turn_dist_offset is None:
+            if np.isclose(self.max_turn_angle, np.pi):  # U-turn
+                turn_dist_offset = 0.0
+            else:
+                turn_dist_offset = (self.dist_to_center) / np.tan((np.pi - self.max_turn_angle) / 2)
+            self._turn_dist_offset = turn_dist_offset
+        return self._turn_dist_offset
 
     @property
     def dist_to_center(self):
@@ -639,6 +678,7 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
                     self._start_ind = self._middle_ind
                     self._middle_ind = self._end_ind
                     self._end_ind = self._next_ind(self._start_ind, self._middle_ind)
+                    self._init_or_reset_cached_properties()
         self.car_node.setPosQuat(*self.pos_quat)
         return self.observe(), None, False, dict()
 
@@ -647,6 +687,7 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
         if state is None:
             speed, lane_offset = self.speed_offset_space.sample()
             self._start_ind, self._middle_ind, self._end_ind = self.sample_vertex_inds()
+            self._init_or_reset_cached_properties()
             straight_dist = np.random.uniform(0.0, self.max_straight_dist)  # distance along current edge
             turn_angle = None  # angle along current curve (defined by two adjacent edges)
             model_name_ind = np.random.randint(0, len(self.model_names))
@@ -665,6 +706,7 @@ class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
     def set_state(self, state):
         speed, lane_offset, straight_dist, turn_angle, start_ind, middle_ind, end_ind, model_name_ind = state
         self._start_ind, self._middle_ind, self._end_ind = int(start_ind), int(middle_ind), int(end_ind)
+        self._init_or_reset_cached_properties()
         model_name_ind = int(model_name_ind)
         # convert -1 to None
         if straight_dist == -1:
