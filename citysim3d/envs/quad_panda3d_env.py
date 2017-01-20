@@ -220,8 +220,5 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
     def get_relative_target_position(self):
         return np.array(self.car_node.getTransform(self.camera_node).getPos())
 
-    def get_focal_length(self):
-        return self.camera_sensor.focal_length
-
     def is_in_view(self):
         return self.camera_node.node().isInView(self.car_node.getTransform(self.camera_node).getPos())

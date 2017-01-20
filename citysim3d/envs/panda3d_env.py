@@ -100,12 +100,6 @@ class Panda3dCameraSensor(object):
         self.lens.setFilmSize(*size)  # this also defines the units of the focal length
         self.lens.setNearFar(*near_far)
 
-    @property
-    def focal_length(self):
-        # same as
-        # size[1] / (2. * np.tan(np.deg2rad(lens.getVfov()) / 2.))
-        return self.lens.getFocalLength()
-
     def observe(self):
         for _ in range(self.graphics_engine.getNumWindows()):
             self.graphics_engine.renderFrame()

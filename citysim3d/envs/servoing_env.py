@@ -6,8 +6,8 @@ from citysim3d.spaces import DictSpace
 class ServoingEnv(Env):
     def __init__(self, env, max_time_steps=100, distance_threshold=4.0):
         """
-        env should implement get_relative_target_position, get_focal_length and
-        is_in_view for this instance to return a reward that is not None
+        env should implement get_relative_target_position, is_in_view for this
+        instance to return a reward that is not None
         """
         self.__dict__.update(env.__dict__)
         self.env = env
@@ -26,7 +26,7 @@ class ServoingEnv(Env):
         y_error = pos[2] / pos[1]
         z_error = 1.0 / pos[1] - 1.0 / self._target_pos[1]
         # self._target_pos[0] and self._target_pos[2] are assumed to be zero (up to errors due to numerical precision)
-        return self.env.get_focal_length() * np.linalg.norm([x_error, y_error, z_error])
+        return np.linalg.norm([x_error, y_error, z_error])
 
     def _step(self, action):
         return self.env.step(action)
@@ -46,7 +46,7 @@ class ServoingEnv(Env):
                     reward *= self.max_time_steps - self._t + 1
             except AttributeError:
                 # return None for the reward if self.env doesn't implement
-                # get_relative_target_position, get_focal_length or is_in_view
+                # get_relative_target_position or is_in_view
                 pass
         obs.update(self._target_obs)
         return obs, reward, done, info
