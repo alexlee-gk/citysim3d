@@ -56,9 +56,12 @@ class Panda3dEnv(Env):
 
 class Panda3dCameraSensor(object):
     def __init__(self, base, color=True, depth=False, size=None, near_far=None, hfov=None, title=None):
-        size = size or (640, 480)
-        near_far = near_far or (0.01, 10000.0)
-        hfov = hfov or 60
+        if size is None:
+            size = (640, 480)
+        if near_far is None:
+            near_far = (0.01, 10000.0)
+        if hfov is None:
+            hfov = 60
         winprops = WindowProperties.size(*size)
         winprops.setTitle(title or 'Camera Sensor')
         fbprops = FrameBufferProperties()
