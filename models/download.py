@@ -2,7 +2,10 @@
 import os
 import subprocess
 import argparse
-import urllib2
+try:
+    from urllib2 import urlopen
+except ImportError:
+    from urllib.request import urlopen
 import tarfile
 
 
@@ -20,7 +23,7 @@ else:
     print("downloading tar file (this might take a while)")
     remote_fname = "http://rll.berkeley.edu/citysim3d/models.tar.gz"
     local_fname = os.path.join(local_dir, "models.tar.gz")
-    urlinfo = urllib2.urlopen(remote_fname)
+    urlinfo = urlopen(remote_fname)
     with open(local_fname, "w") as fh:
         fh.write(urlinfo.read())
 
