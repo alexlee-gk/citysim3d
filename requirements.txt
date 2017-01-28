@@ -1,1 +1,2 @@
 pycollada
+opencv-python
