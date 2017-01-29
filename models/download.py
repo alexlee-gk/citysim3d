@@ -24,7 +24,7 @@ else:
     remote_fname = "http://rll.berkeley.edu/citysim3d/models.tar.gz"
     local_fname = os.path.join(local_dir, "models.tar.gz")
     urlinfo = urlopen(remote_fname)
-    with open(local_fname, "w") as fh:
+    with open(local_fname, "wb") as fh:
         fh.write(urlinfo.read())
 
     print("unpacking file")
