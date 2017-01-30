@@ -252,8 +252,11 @@ class StraightCarPanda3dEnv(CarPanda3dEnv):
 
 
 class SimpleGeometricCarPanda3dEnv(CarPanda3dEnv):
-    def __init__(self, action_space, sensor_names=None, model_names=None, app=None, dt=None):
-        super(SimpleGeometricCarPanda3dEnv, self).__init__(action_space, sensor_names=sensor_names, model_names=model_names, app=app, dt=dt)
+    def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
+                 model_names=None, app=None, dt=None):
+        super(SimpleGeometricCarPanda3dEnv, self).__init__(action_space, sensor_names=sensor_names,
+                                                           camera_size=camera_size, camera_hfov=camera_hfov,
+                                                           model_names=model_names, app=app, dt=dt)
         self._graph_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
                                                        'urban-level-02-medium-road-directed-graph.dae')
         self._faces_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
@@ -439,8 +442,11 @@ class SimpleGeometricCarPanda3dEnv(CarPanda3dEnv):
 
 
 class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
-    def __init__(self, action_space, sensor_names=None, model_names=None, app=None, dt=None):
-        CarPanda3dEnv.__init__(self, action_space, sensor_names=sensor_names, model_names=model_names, app=app, dt=dt)
+    def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
+                 model_names=None, app=None, dt=None):
+        CarPanda3dEnv.__init__(self, action_space, sensor_names=sensor_names,
+                               camera_size=camera_size, camera_hfov=camera_hfov,
+                               model_names=model_names, app=app, dt=dt)
         self._init_or_reset_cached_properties()
         self._graph_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
                                                        'urban-level-02-medium-road-directed-graph.dae')
