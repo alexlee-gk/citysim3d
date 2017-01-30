@@ -202,8 +202,11 @@ class CarPanda3dEnv(Panda3dEnv):
 
 
 class StraightCarPanda3dEnv(CarPanda3dEnv):
-    def __init__(self, action_space, sensor_names=None, model_names=None, app=None, dt=None):
-        super(StraightCarPanda3dEnv, self).__init__(action_space, sensor_names=sensor_names, model_names=model_names, app=app, dt=dt)
+    def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
+                 model_names=None, app=None, dt=None):
+        super(StraightCarPanda3dEnv, self).__init__(action_space, sensor_names=sensor_names,
+                                                    camera_size=camera_size, camera_hfov=camera_hfov,
+                                                    model_names=model_names, app=app, dt=dt)
         self.dist_space = BoxSpace(0, 275 + 225)
         # minimum and maximum position of the car
         # [-51 - 6, -275, 10.7]
