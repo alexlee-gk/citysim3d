@@ -1,8 +1,9 @@
+import citysim3d.utils.transformations as tf
 import numpy as np
-from panda3d.core import AmbientLight, PointLight
 from citysim3d.envs import Panda3dEnv, GeometricCarPanda3dEnv, Panda3dCameraSensor
 from citysim3d.spaces import BoxSpace, DictSpace
-import citysim3d.utils.transformations as tf
+from panda3d.core import AmbientLight, PointLight
+from panda3d.core import NodePath
 
 
 class SimpleQuadPanda3dEnv(Panda3dEnv):
@@ -26,7 +27,9 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.car_env.speed_offset_space.low[0] = self.action_space.high[1] / 4  # meters per second
         self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
 
-        self._load_quad()
+        # load quad model only if render() is called, otherwise, just use empty node
+        self._is_quad_loaded = False
+        self.quad_node = NodePath('iris')
         self.quad_node.setName('quad')
         self.prop_angle = 0.0
         self.prop_rpm = 10212
@@ -86,6 +89,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         sun_light.node().setColor(sun_light_color)
         sun_light.setPos((-2506., -634., 2596.))
         self.quad_node.setLight(sun_light)
+        self.quad_node.flattenStrong()
 
         quad_prop_positions = [np.array([ 0.20610,  0.13830, 0.025]),  # blue, right
                                np.array([ 0.22254, -0.12507, 0.025]),  # black, right
@@ -98,11 +102,12 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             quad_prop_local_node = self.app.loader.loadModel('iris_prop_%s' % ('ccw' if is_ccw else 'cw'))
             quad_prop_local_node.reparentTo(quad_prop_node)
             quad_prop_node.setPos(tuple(quad_prop_pos))
+            quad_prop_node.flattenStrong()
             self.quad_prop_local_nodes.append(quad_prop_local_node)
 
     def step(self, action):
         # update the angle of the propellers (for rendering purposes)
-        if self.prop_rpm:
+        if self._is_quad_loaded and self.prop_rpm:
             self.prop_angle += (self.prop_rpm * 2 * np.pi / 60) * self.dt
             self.prop_angle -= 2 * np.pi * np.floor(self.prop_angle / (2 * np.pi))
             for quad_prop_id, quad_prop_local_node in enumerate(self.quad_prop_local_nodes):
@@ -196,6 +201,9 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             return dict()
 
     def render(self):
+        if not self._is_quad_loaded:
+            self._load_quad()
+            self._is_quad_loaded = True
         if self._first_render:
             tightness = 1.0
             self._first_render = False

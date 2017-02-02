@@ -1,11 +1,12 @@
-import numpy as np
 import os.path
 from collections import defaultdict
+
+import citysim3d.utils.transformations as tf
 import collada
-from panda3d.core import AmbientLight, PointLight
+import numpy as np
 from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor
 from citysim3d.spaces import BoxSpace, DictSpace
-import citysim3d.utils.transformations as tf
+from panda3d.core import AmbientLight, PointLight
 
 
 class CarPanda3dEnv(Panda3dEnv):
@@ -82,6 +83,7 @@ class CarPanda3dEnv(Panda3dEnv):
         try:
             self.skybox_node = self.app.loader.loadModel("skyboxes/01-clean-day/skybox-mesh")
             self.skybox_node.reparentTo(self.app.render)
+            self.skybox_node.flattenStrong()
         except IOError:
             print("Some models are missing. Skipping loading file skyboxes/01-clean-day/skybox-mesh")
             self.skybox_node = None
@@ -98,6 +100,7 @@ class CarPanda3dEnv(Panda3dEnv):
             self.sun_light.node().setColor((.2, .2, .2, 1))
             self.sun_light.setPos((-2506., -634., 2596.))
             self.city_node.setLight(self.sun_light)
+            self.city_node.flattenStrong()
         except IOError:
             print("Some models are missing. Skipping loading file levels/urban-level-02-medium")
             self.city_node = None
@@ -130,6 +133,7 @@ class CarPanda3dEnv(Panda3dEnv):
         sun_light.node().setColor(sun_light_color)
         sun_light.setPos((-2506., -634., 2596.))
         car_local_node.setLight(sun_light)
+        car_local_node.flattenStrong()
         return car_local_node
 
     @property
