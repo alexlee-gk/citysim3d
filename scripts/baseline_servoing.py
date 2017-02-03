@@ -64,7 +64,7 @@ def main():
                     car_model_names = ['kia_rio_silver', 'kia_rio_yellow', 'mitsubishi_lancer_evo']
                 else:
                     car_model_names = None
-    camera_size, camera_hfov = putil.scale_crop_camera_parameters((640, 480), 60.0, crop_size=(int(32 / 0.125),) * 2)
+    camera_size, camera_hfov = putil.scale_crop_camera_parameters((640, 480), 60.0, scale_size=0.5, crop_size=(128,) * 2)
     if args.env == 'bbox':
         env = BboxSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
                                        camera_size=camera_size, camera_hfov=camera_hfov)
@@ -89,7 +89,6 @@ def main():
     else:
         pol = PointBasedServoingPolicy(env, lambda_=args.lambda_, interaction_matrix_type=args.interaction_matrix_type, use_car_dynamics=args.use_car_dynamics)
 
-    np.random.seed(7)
     if args.verbose:
         errors_header_format = '{:>30}{:>15}'
         errors_row_format = '{:>30}{:>15.4f}'
@@ -97,6 +96,7 @@ def main():
     done = False
     discounted_returns = []
     for traj_iter, reset_state in zip(range(args.num_trajs), reset_states):  # whichever is shorter
+        np.random.seed(traj_iter)
         if args.verbose:
             print('=' * 45)
         obs = env.reset(reset_state)
