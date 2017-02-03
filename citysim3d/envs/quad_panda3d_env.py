@@ -3,7 +3,6 @@ import numpy as np
 from citysim3d.envs import Panda3dEnv, GeometricCarPanda3dEnv, Panda3dCameraSensor
 from citysim3d.spaces import BoxSpace, DictSpace
 from panda3d.core import AmbientLight, PointLight
-from panda3d.core import NodePath
 
 
 class SimpleQuadPanda3dEnv(Panda3dEnv):
@@ -27,10 +26,12 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.car_env.speed_offset_space.low[0] = self.action_space.high[1] / 4  # meters per second
         self.car_env.speed_offset_space.high[0] = self.action_space.high[1] / 4
 
-        # load quad model only if render() is called, otherwise, just use empty node
-        self._is_quad_loaded = False
-        self.quad_node = NodePath('iris')
+        # show the quad model only if render() is called, otherwise keep it hidden
+        self._load_quad()
         self.quad_node.setName('quad')
+        self.quad_node.hide()
+        for quad_prop_local_node in self.quad_prop_local_nodes:
+            quad_prop_local_node.hide()
         self.prop_angle = 0.0
         self.prop_rpm = 10212
 
@@ -107,7 +108,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
     def step(self, action):
         # update the angle of the propellers (for rendering purposes)
-        if self._is_quad_loaded and self.prop_rpm:
+        if self.prop_rpm:
             self.prop_angle += (self.prop_rpm * 2 * np.pi / 60) * self.dt
             self.prop_angle -= 2 * np.pi * np.floor(self.prop_angle / (2 * np.pi))
             for quad_prop_id, quad_prop_local_node in enumerate(self.quad_prop_local_nodes):
@@ -201,9 +202,11 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
             return dict()
 
     def render(self):
-        if not self._is_quad_loaded:
-            self._load_quad()
-            self._is_quad_loaded = True
+        if self.quad_node.isHidden():
+            self.quad_node.show()
+            for quad_prop_local_node in self.quad_prop_local_nodes:
+                quad_prop_local_node.show()
+
         if self._first_render:
             tightness = 1.0
             self._first_render = False
