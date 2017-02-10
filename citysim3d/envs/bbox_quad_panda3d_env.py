@@ -15,18 +15,18 @@ def get_bounding_box(mask_image):
 
 class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
     def __init__(self, *args, **kwargs):
+        """use_car_dynamics only applies to points"""
+        self.use_car_dynamics = kwargs.pop('use_car_dynamics', False)
         super(BboxSimpleQuadPanda3dEnv, self).__init__(*args, **kwargs)
 
-        lens = self.camera_node.node().getLens()
+        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
+                                                          size=self.camera_size,
+                                                          hfov=self.camera_hfov)
+        for cam in self.mask_camera_sensor.cam:
+            cam.reparentTo(self.camera_node)
+        lens = self.mask_camera_sensor.cam[0].node().getLens()
         self._observation_space.spaces['points'] = BoxSpace(np.array([[-np.inf, lens.getNear(), -np.inf]] * 4),
                                                             np.array([[np.inf, lens.getFar(), np.inf]] * 4))
-        film_size = tuple(int(s) for s in lens.getFilmSize())
-        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
-                                                          size=film_size,
-                                                          near_far=(lens.getNear(), lens.getFar()),
-                                                          hfov=lens.getFov())
-        for cam in self.mask_camera_sensor.cam:
-            cam.reparentTo(self.camera_sensor.cam)
 
     def step(self, action):
         obs, reward, done, info = super(BboxSimpleQuadPanda3dEnv, self).step(action)
@@ -34,6 +34,13 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         return obs, reward, done, info
 
     def observe(self):
+        if self.use_car_dynamics:
+            # save state and step car
+            random_state = np.random.get_state()
+            state = self.get_state()
+            car_action = self.car_env.action_space.sample()
+            self.car_env.step(car_action)
+
         mask, depth_image, _ = self.mask_camera_sensor.observe()
         # if the target object is not in the view, return None for the corner points
         if np.any(mask):
@@ -51,6 +58,11 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
             corners_XYZ = extrude_depth(self.camera_sensor.lens, corners_2d)
         else:
             corners_XYZ = None
+
+        if self.use_car_dynamics:
+            # restore state
+            self.set_state(state)
+            np.random.set_state(random_state)
 
         obs = super(BboxSimpleQuadPanda3dEnv, self).observe()
         obs['points'] = corners_XYZ

@@ -7,6 +7,7 @@ import numpy as np
 from citysim3d.envs import Panda3dEnv, Panda3dCameraSensor
 from citysim3d.spaces import BoxSpace, DictSpace
 from panda3d.core import AmbientLight, PointLight
+from panda3d.core import NodePath
 
 
 class CarPanda3dEnv(Panda3dEnv):
@@ -15,6 +16,8 @@ class CarPanda3dEnv(Panda3dEnv):
         super(CarPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
+        self._camera_size = camera_size
+        self._camera_hfov = camera_hfov
         self.model_names = model_names or ['camaro2']
         if not isinstance(self.model_names, (tuple, list)):
             raise ValueError('model_names should be a tuple or a list, but %r was given.' % model_names)
@@ -48,10 +51,8 @@ class CarPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=camera_size, hfov=camera_hfov)
+            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=self.camera_size, hfov=self.camera_hfov)
             self.camera_node = self.camera_sensor.cam
-            self.camera_node.reparentTo(self.car_node)
-            self.camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
             self.camera_node.setName('car_camera')
 
             lens = self.camera_node.node().getLens()
@@ -63,8 +64,10 @@ class CarPanda3dEnv(Panda3dEnv):
                     observation_spaces[sensor_name] = BoxSpace(lens.getNear(), lens.getFar(), shape=film_size[::-1] + (1,))
         else:
             self.camera_sensor = None
+            self.camera_node = NodePath('car_camera')
+        self.camera_node.reparentTo(self.car_node)
+        self.camera_node.setPos(tuple(np.array([0, 1, 2])))  # slightly in front of the car
         self._observation_space = DictSpace(observation_spaces)
-
         self._first_render = True
 
     @property
@@ -78,6 +81,14 @@ class CarPanda3dEnv(Panda3dEnv):
     @property
     def sensor_names(self):
         return self._sensor_names
+
+    @property
+    def camera_size(self):
+        return self._camera_size
+
+    @property
+    def camera_hfov(self):
+        return self._camera_hfov
 
     def _load_city(self):
         try:

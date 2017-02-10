@@ -1,15 +1,16 @@
-import sys
 import os
+import sys
+
+import citysim3d.utils.transformations as tf
 import numpy as np
+from citysim3d.envs import Env
+from citysim3d.utils.panda3d_util import parse_options
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import WindowProperties, FrameBufferProperties
+from panda3d.core import BitMask32
 from panda3d.core import GraphicsPipe, GraphicsEngine, GraphicsOutput
 from panda3d.core import Texture
 from panda3d.core import VirtualFileSystem, ConfigVariableList, Filename
-from panda3d.core import BitMask32
-from citysim3d.envs import Env
-import citysim3d.utils.transformations as tf
-from citysim3d.utils.panda3d_util import parse_options
+from panda3d.core import WindowProperties, FrameBufferProperties
 
 
 class Panda3dEnv(Env):
@@ -21,10 +22,11 @@ class Panda3dEnv(Env):
         self._dt = 0.1 if dt is None else dt
 
         # setup visualization camera
-        vfov = 45
-        hfov = vfov * float(self.app.win.getSize()[0]) / float(self.app.win.getSize()[1])
-        self.app.camLens.setFov(hfov, vfov)
-        self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
+        if self.app.win and self.app.camLens:
+            vfov = 45
+            hfov = vfov * float(self.app.win.getSize()[0]) / float(self.app.win.getSize()[1])
+            self.app.camLens.setFov(hfov, vfov)
+            self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
 
         # The VirtualFileSystem, which has already initialized, doesn't see the mount
         # directives in the config(s) yet. We have to force it to load those manually:
@@ -152,6 +154,8 @@ class Panda3dMaskCameraSensor(object):
         self.visible_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
                                                          size=size, near_far=near_far, hfov=hfov,
                                                          title='Visible Camera Sensor (MaskCameraSensor)')
+        self.all_camera_sensor.cam.setName('all_camera_sensor')
+        self.visible_camera_sensor.cam.setName('visible_camera_sensor')
         self.cam = (self.all_camera_sensor.cam, self.visible_camera_sensor.cam)
 
         non_hidden_mask = BitMask32(0x3FFFFFFF)

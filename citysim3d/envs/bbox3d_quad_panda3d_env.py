@@ -7,6 +7,8 @@ from citysim3d.spaces import BoxSpace
 
 class Bbox3dSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
     def __init__(self, *args, **kwargs):
+        """use_car_dynamics only applies to points"""
+        self.use_car_dynamics = kwargs.pop('use_car_dynamics', False)
         super(Bbox3dSimpleQuadPanda3dEnv, self).__init__(*args, **kwargs)
 
         self._observation_space.spaces['points'] = BoxSpace(-np.inf, np.inf, shape=(8, 3))
@@ -15,12 +17,24 @@ class Bbox3dSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         # self.car_env._car_local_node.showTightBounds()
 
     def observe(self):
+        if self.use_car_dynamics:
+            # save state and step car
+            random_state = np.random.get_state()
+            state = self.get_state()
+            car_action = self.car_env.action_space.sample()
+            self.car_env.step(car_action)
+
         obj_node = self.car_env._car_local_node
         cam_node = self.camera_node
         bounds = BoundingBox(*obj_node.getTightBounds())
         corners_XYZ = np.array(list(itertools.product(*zip(bounds.getMin(), bounds.getMax()))))
         obj_to_cam_T = obj_node.getParent().getMat(cam_node)
         corners_XYZ = np.array([obj_to_cam_T.xform(Point3(*corner_XYZ)) for corner_XYZ in corners_XYZ])[:, :3]
+
+        if self.use_car_dynamics:
+            # restore state
+            self.set_state(state)
+            np.random.set_state(random_state)
 
         obs = super(Bbox3dSimpleQuadPanda3dEnv, self).observe()
         obs['points'] = corners_XYZ

@@ -3,6 +3,7 @@ import numpy as np
 from citysim3d.envs import Panda3dEnv, GeometricCarPanda3dEnv, Panda3dCameraSensor
 from citysim3d.spaces import BoxSpace, DictSpace
 from panda3d.core import AmbientLight, PointLight
+from panda3d.core import NodePath
 
 
 class SimpleQuadPanda3dEnv(Panda3dEnv):
@@ -12,6 +13,8 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
+        self._camera_size = camera_size
+        self._camera_hfov = camera_hfov
         self.offset = np.array(offset) if offset is not None \
             else np.array([0, -1 / np.tan(np.pi / 6), 1]) * 15.05  # offset to quad
         self.car_env_class = car_env_class or GeometricCarPanda3dEnv
@@ -28,12 +31,17 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
         # show the quad model only if render() is called, otherwise keep it hidden
         self._load_quad()
+        self.inertial_node = self.quad_node
         self.quad_node.setName('quad')
         self.quad_node.hide()
         for quad_prop_local_node in self.quad_prop_local_nodes:
             quad_prop_local_node.hide()
         self.prop_angle = 0.0
         self.prop_rpm = 10212
+
+        camera_to_inertial_pos = np.array([0, -1 / np.tan(np.pi / 6), 1]) * -0.05  # slightly in front of the quad
+        camera_to_inertial_quat = tf.quaternion_about_axis(-np.pi / 6, np.array([1, 0, 0]))
+        self.camera_to_inertial_T = tf.pose_matrix(camera_to_inertial_quat, camera_to_inertial_pos)
 
         observation_spaces = dict()
         if self.sensor_names:
@@ -45,14 +53,9 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=camera_size, hfov=camera_hfov)
-            self.camera_node = self.camera_sensor.cam
-            self.camera_node.reparentTo(self.quad_node)
-            self.camera_node.setPos(tuple(np.array([0, -1 / np.tan(np.pi / 6), 1]) * -0.05))  # slightly in front of the quad
-            self.camera_node.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 6, np.array([1, 0, 0]))))
-            self.camera_node.setName('quad_camera')
+            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=self.camera_size, hfov=self.camera_hfov)
 
-            lens = self.camera_node.node().getLens()
+            lens = self.camera_sensor.cam.node().getLens()
             film_size = tuple(int(s) for s in lens.getFilmSize())
             for sensor_name in self.sensor_names:
                 if sensor_name == 'image':
@@ -60,7 +63,12 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                 elif sensor_name == 'depth_image':
                     observation_spaces[sensor_name] = BoxSpace(lens.getNear(), lens.getFar(), shape=film_size[::-1] + (1,))
         else:
-            self.camera_sensor = None
+            # still create camera sensor for functions that use camera information (e.g. isInView())
+            self.camera_sensor = Panda3dCameraSensor(self.app, size=self.camera_size, hfov=self.camera_hfov)
+        self.camera_node = self.camera_sensor.cam
+        self.camera_node.setName('quad_camera')
+        self.camera_node.reparentTo(self.quad_node)
+        self.camera_node.setPosQuat(tuple(camera_to_inertial_pos), tuple(camera_to_inertial_quat))
         self._observation_space = DictSpace(observation_spaces)
         self._first_render = True
 
@@ -75,6 +83,14 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
     @property
     def sensor_names(self):
         return self._sensor_names
+
+    @property
+    def camera_size(self):
+        return self._camera_size
+
+    @property
+    def camera_hfov(self):
+        return self._camera_hfov
 
     def _load_quad(self):
         self.quad_node = self.app.loader.loadModel('iris')
@@ -160,25 +176,30 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
     @property
     def hor_car_T(self):
         hor_car_T = tf.pose_matrix(self.car_node.getQuat(), self.car_node.getPos())
-        hor_car_rot_z = np.array([0, 0, 1])
-        hor_car_rot_x = np.cross(hor_car_T[:3, 1], hor_car_rot_z)
-        hor_car_rot_y = np.cross(hor_car_rot_z, hor_car_rot_x)
-        hor_car_T[:3, :3] = np.array([hor_car_rot_x, hor_car_rot_y, hor_car_rot_z]).T
+        up = np.array([0, 0, 1])
+        angle = tf.angle_between_vectors(hor_car_T[:3, 2], up)
+        if angle != 0.0:
+            axis = np.cross(hor_car_T[:3, 2], up)
+            project_T = tf.rotation_matrix(angle, axis, point=hor_car_T[:3, 3])
+            hor_car_T = project_T.dot(hor_car_T)
         return hor_car_T
 
     def compute_desired_quad_pos_quat(self, offset=None):
         offset = offset if offset is not None else self.offset
         # desired position of the quad is located at offset relative to the car (reoriented so that the car is horizontal)
         hor_car_T = self.hor_car_T
-        des_quad_pos = hor_car_T[:3, 3] + hor_car_T[:3, :3].dot(offset)
-        # desired rotation of the quad points towards the car while constraining the z-axis to be up
-        des_quad_rot_y = hor_car_T[:3, 3] - des_quad_pos
-        des_quad_rot_y /= np.linalg.norm(des_quad_rot_y)
-        des_quad_rot_z = np.array([0, 0, 1])
-        des_quad_rot_x = np.cross(des_quad_rot_y, des_quad_rot_z)
-        des_quad_rot_y = np.cross(des_quad_rot_z, des_quad_rot_x)
-        des_quad_rot = np.array([des_quad_rot_x, des_quad_rot_y, des_quad_rot_z]).T
-        des_quad_quat = tf.quaternion_from_matrix(des_quad_rot)
+        des_quad_T = hor_car_T.dot(tf.translation_matrix(offset))
+        # adjust desired rotation of the quad so that it points towards the car while constraining the z-axis to be up
+        up = np.array([0, 0, 1])
+        des_quat_rot_y = hor_car_T[:3, 3] - des_quad_T[:3, 3]
+        des_quat_rot_y -= des_quat_rot_y.dot(up) * up  # project to horizontal plane
+        angle = tf.angle_between_vectors(des_quad_T[:3, 1], des_quat_rot_y)
+        if angle != 0.0:
+            axis = np.cross(des_quad_T[:3, 1], des_quat_rot_y)
+            project_T = tf.rotation_matrix(angle, axis, point=des_quad_T[:3, 3])
+            des_quad_T = project_T.dot(des_quad_T)
+        des_quad_pos = des_quad_T[:3, 3]
+        des_quad_quat = tf.quaternion_from_matrix(des_quad_T[:3, :3])
         return des_quad_pos, des_quad_quat
 
     def get_state(self):
