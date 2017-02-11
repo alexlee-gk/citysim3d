@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.optimize
 from citysim3d.policies import Policy
 
 
@@ -15,9 +16,10 @@ def get_interaction_matrix_XYZ(X, Y, Z, axis=None):
 
 
 class Point3dBasedServoingPolicy(Policy):
-    def __init__(self, env, lambda_=1.0):
+    def __init__(self, env, lambda_, use_constrained_opt=True):
         self.env = env
         self.lambda_ = lambda_
+        self.use_constrained_opt = use_constrained_opt
 
     def act(self, obs):
         # transform the observed points from the camera's to the inertial's reference frame
@@ -37,8 +39,12 @@ class Point3dBasedServoingPolicy(Policy):
         L = np.concatenate(L)
         L *= self.env.dt
 
-        try:
-            action = - self.lambda_ * np.linalg.solve(L.T.dot(L), L.T.dot(s - s_target))
-        except np.linalg.linalg.LinAlgError:
-            action = np.zeros(self.env.action_space.shape)
+        if self.use_constrained_opt:
+            action = - self.lambda_ * scipy.optimize.lsq_linear(L.T.dot(L), L.T.dot(s - s_target),
+                                                                bounds=(self.env.action_space.low, self.env.action_space.high)).x
+        else:
+            try:
+                action = - self.lambda_ * np.linalg.solve(L.T.dot(L), L.T.dot(s - s_target))
+            except np.linalg.linalg.LinAlgError:
+                action = np.zeros(self.env.action_space.shape)
         return action

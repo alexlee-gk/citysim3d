@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.optimize
 from citysim3d.policies import Policy
 
 
@@ -20,17 +21,22 @@ def XYZ_to_xzY(XYZ):
 
 
 class ImageBasedServoingPolicy(Policy):
-    def __init__(self, env, lambda_=1.0, interaction_matrix_type=None):
+    def __init__(self, env, lambda_=1.0, interaction_matrix_type=None, use_constrained_opt=True):
         """
         Args:
             interaction_matrix_type: 'target', 'current' or 'both'. Indicates
                 if the interaction matrix should use the depth Z of the target
                 points or the current points or a mix of both (where both
                 matrices are averages).
+
+        F. Chaumette and S. Hutchinson, "Visual servo control. I. Basic
+        approaches," in IEEE Robotics & Automation Magazine, vol. 13, no. 4,
+        pp. 82-90, Dec. 2006.
         """
         self.env = env
         self.lambda_ = lambda_
         self.interaction_matrix_type = interaction_matrix_type or 'both'
+        self.use_constrained_opt = use_constrained_opt
 
     def act(self, obs):
         # transform the observed points from the camera's to the inertial's reference frame
@@ -61,8 +67,12 @@ class ImageBasedServoingPolicy(Policy):
         L = np.concatenate(L)
         L *= self.env.dt
 
-        try:
-            action = - self.lambda_ * np.linalg.solve(L.T.dot(L), L.T.dot(s - s_target))
-        except np.linalg.linalg.LinAlgError:
-            action = np.zeros(self.env.action_space.shape)
+        if self.use_constrained_opt:
+            action = - self.lambda_ * scipy.optimize.lsq_linear(L.T.dot(L), L.T.dot(s - s_target),
+                                                                bounds=(self.env.action_space.low, self.env.action_space.high)).x
+        else:
+            try:
+                action = - self.lambda_ * np.linalg.solve(L.T.dot(L), L.T.dot(s - s_target))
+            except np.linalg.linalg.LinAlgError:
+                action = np.zeros(self.env.action_space.shape)
         return action

@@ -22,8 +22,8 @@ def main():
     parser.add_argument('--filter_features', type=int, help='[default=1] whether to filter out key points that are not on the object in the current image (only valid for env=designed)')
     parser.add_argument('--use_3d_pol', action='store_true', help='use policy that minimizes the error of 3d points (as opposed to projected 2d points)')
     parser.add_argument('--use_car_dynamics', '--use_car_dyn', action='store_true')
-    parser.add_argument('--straight_trajectory', type=int, default=1)
-    parser.add_argument('--ignore_rotation', type=int, default=0)
+    parser.add_argument('--use_object_frame', '--use_obj_frame', type=int, help='[default=1] whether to use object or target camera frame in PBVS')
+    parser.add_argument('--ignore_rotation', type=int, help='[default=0] whether to ignore the rotation component in PBVS')
     parser.add_argument('--lambda_', '--lambda', type=float, default=1.0)
     parser.add_argument('--interaction_matrix_type', '--inter_mat_type', type=str, choices=('target', 'current', 'both'), default=None)
     parser.add_argument('--start_traj_iter', '-s', type=int, default=0)
@@ -38,11 +38,19 @@ def main():
     args = parser.parse_args()
 
     # check parsing
-    # TODO: check parsing for transform env
     if args.env != 'designed':
         if args.feature_type is not None or args.filter_features is not None:
-            raise ValueError("feature_type nor filter_features can only be used "
+            raise ValueError("feature_type and filter_features can only be used "
                              "for the hand-designed feature environment.")
+    if args.env != 'transform':
+        if args.use_object_frame is not None or args.ignore_rotation is not None:
+            raise ValueError("use_object_frame and ignore_rotation can only be used "
+                             "for the transform environment.")
+    else:
+        if args.use_object_frame is None:
+            args.use_object_frame = 1
+        if args.ignore_rotation is None:
+            args.ignore_rotation = 0
     if args.use_3d_pol:
         if args.interaction_matrix_type is not None:
             raise ValueError("interaction_matrix_type can only be used for "
@@ -98,7 +106,7 @@ def main():
 
     if args.env == 'transform':
         pol = PositionBasedServoingPolicy(env, lambda_=args.lambda_,
-                                          straight_trajectory=args.straight_trajectory,
+                                          use_object_frame=args.use_object_frame,
                                           ignore_rotation=args.ignore_rotation)
     else:
         if args.use_3d_pol:
