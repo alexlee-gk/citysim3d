@@ -14,34 +14,43 @@ from panda3d.core import WindowProperties, FrameBufferProperties
 
 
 class Panda3dEnv(Env):
-    def __init__(self, app=None, dt=None):
-        self.app = app or ShowBase()
-        self.app.accept('escape', sys.exit)
-        self.root_node = self.app.render
+    app = None
+    id = 0
 
+    def __init__(self, root_node=None, dt=None):
+        if Panda3dEnv.app is None:
+            Panda3dEnv.app = ShowBase()
+
+            self.app.accept('escape', sys.exit)
+
+            # setup visualization camera
+            if self.app.win and self.app.camLens:
+                vfov = 45
+                hfov = vfov * float(self.app.win.getSize()[0]) / float(self.app.win.getSize()[1])
+                self.app.camLens.setFov(hfov, vfov)
+                self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
+
+            # The VirtualFileSystem, which has already initialized, doesn't see the mount
+            # directives in the config(s) yet. We have to force it to load those manually:
+            vfs = VirtualFileSystem.getGlobalPtr()
+            mounts = ConfigVariableList('vfs-mount')
+            for mount_desc in mounts:
+                mount_desc = mount_desc.split(' ')
+                physical_filename, mount_point = mount_desc[:2]
+                physical_filename = os.path.expandvars(physical_filename)
+                mount_point = os.path.expandvars(mount_point)
+                if len(mount_desc) > 2:
+                    options = mount_desc[2]
+                else:
+                    options = ''
+                vfs.mount(Filename(physical_filename), Filename(mount_point), *parse_options(options))
+
+        if root_node is None:
+            self.root_node = self.app.render.attachNewNode('%s_%d' % (Panda3dEnv.__name__, Panda3dEnv.id))
+            Panda3dEnv.id += 1
+        else:
+            self.root_node = root_node
         self._dt = 0.1 if dt is None else dt
-
-        # setup visualization camera
-        if self.app.win and self.app.camLens:
-            vfov = 45
-            hfov = vfov * float(self.app.win.getSize()[0]) / float(self.app.win.getSize()[1])
-            self.app.camLens.setFov(hfov, vfov)
-            self.app.camLens.set_near_far(0.01, 10000.0)  # 1cm to 10km
-
-        # The VirtualFileSystem, which has already initialized, doesn't see the mount
-        # directives in the config(s) yet. We have to force it to load those manually:
-        vfs = VirtualFileSystem.getGlobalPtr()
-        mounts = ConfigVariableList('vfs-mount')
-        for mount_desc in mounts:
-            mount_desc = mount_desc.split(' ')
-            physical_filename, mount_point = mount_desc[:2]
-            physical_filename = os.path.expandvars(physical_filename)
-            mount_point = os.path.expandvars(mount_point)
-            if len(mount_desc) > 2:
-                options = mount_desc[2]
-            else:
-                options = ''
-            vfs.mount(Filename(physical_filename), Filename(mount_point), *parse_options(options))
 
     def render(self):
         self.app.cam.setQuat(tuple(tf.quaternion_about_axis(-np.pi / 2, np.array([1, 0, 0]))))
@@ -57,7 +66,7 @@ class Panda3dEnv(Env):
 
 
 class Panda3dCameraSensor(object):
-    def __init__(self, base, color=True, depth=False, size=None, near_far=None, hfov=None, title=None):
+    def __init__(self, base, root_node, color=True, depth=False, size=None, near_far=None, hfov=None, title=None):
         if size is None:
             size = (640, 480)
         if near_far is None:
@@ -99,7 +108,7 @@ class Panda3dCameraSensor(object):
         else:
             self.depth_tex = None
 
-        self.cam = base.makeCamera(self.buffer, scene=base.render, camName='camera_sensor')
+        self.cam = base.makeCamera(self.buffer, scene=root_node, camName='camera_sensor')
         self.lens = self.cam.node().getLens()
         self.lens.setFov(hfov)
         self.lens.setFilmSize(*size)  # this also defines the units of the focal length
@@ -145,13 +154,13 @@ class Panda3dCameraSensor(object):
 
 
 class Panda3dMaskCameraSensor(object):
-    def __init__(self, base, hidden_nodes, size=None, near_far=None, hfov=None):
+    def __init__(self, base, root_node, hidden_nodes, size=None, near_far=None, hfov=None):
         # renders everything
-        self.all_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
+        self.all_camera_sensor = Panda3dCameraSensor(base, root_node, color=False, depth=True,
                                                      size=size, near_far=near_far, hfov=hfov,
                                                      title='All Camera Sensor (MaskCameraSensor)')
         # renders the non-hidden nodes
-        self.visible_camera_sensor = Panda3dCameraSensor(base, color=False, depth=True,
+        self.visible_camera_sensor = Panda3dCameraSensor(base, root_node, color=False, depth=True,
                                                          size=size, near_far=near_far, hfov=hfov,
                                                          title='Visible Camera Sensor (MaskCameraSensor)')
         self.all_camera_sensor.cam.setName('all_camera_sensor')

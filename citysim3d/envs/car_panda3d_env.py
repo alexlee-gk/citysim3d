@@ -12,8 +12,8 @@ from panda3d.core import NodePath
 
 class CarPanda3dEnv(Panda3dEnv):
     def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
-                 model_names=None, app=None, dt=None):
-        super(CarPanda3dEnv, self).__init__(app=app, dt=dt)
+                 model_names=None, root_node=None, dt=None):
+        super(CarPanda3dEnv, self).__init__(root_node=root_node, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
         self._camera_size = camera_size
@@ -35,7 +35,7 @@ class CarPanda3dEnv(Panda3dEnv):
                                            [10.0, (self._num_lanes - 0.5) * self._lane_width])
 
         self._load_city()
-        self.car_node = self.app.render.attachNewNode('car')
+        self.car_node = self.root_node.attachNewNode('car')
         self._car_local_node = None
         self._car_local_nodes = dict()
 
@@ -51,7 +51,7 @@ class CarPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=self.camera_size, hfov=self.camera_hfov)
+            self.camera_sensor = Panda3dCameraSensor(self.app, self.root_node, color=color, depth=depth, size=self.camera_size, hfov=self.camera_hfov)
             self.camera_node = self.camera_sensor.cam
             self.camera_node.setName('car_camera')
 
@@ -93,7 +93,7 @@ class CarPanda3dEnv(Panda3dEnv):
     def _load_city(self):
         try:
             self.skybox_node = self.app.loader.loadModel("skyboxes/01-clean-day/skybox-mesh")
-            self.skybox_node.reparentTo(self.app.render)
+            self.skybox_node.reparentTo(self.root_node)
             self.skybox_node.flattenStrong()
         except IOError:
             print("Some models are missing. Skipping loading file skyboxes/01-clean-day/skybox-mesh")
@@ -101,13 +101,13 @@ class CarPanda3dEnv(Panda3dEnv):
 
         try:
             self.city_node = self.app.loader.loadModel("levels/urban-level-02-medium")
-            self.city_node.reparentTo(self.app.render)
+            self.city_node.reparentTo(self.root_node)
 
-            self.ambient_light = self.app.render.attachNewNode(AmbientLight('ambient_light'))
+            self.ambient_light = self.root_node.attachNewNode(AmbientLight('ambient_light'))
             self.ambient_light.node().setColor((1, 1, 1, 1))
             self.city_node.setLight(self.ambient_light)
 
-            self.sun_light = self.app.render.attachNewNode(PointLight('sun_light'))
+            self.sun_light = self.root_node.attachNewNode(PointLight('sun_light'))
             self.sun_light.node().setColor((.2, .2, .2, 1))
             self.sun_light.setPos((-2506., -634., 2596.))
             self.city_node.setLight(self.sun_light)
@@ -137,10 +137,10 @@ class CarPanda3dEnv(Panda3dEnv):
             ambient_color = (.3, .3, .3, 1)
             sun_light_color = (1, 1, 1, 1)
         car_local_node.setLightOff()
-        ambient_light = self.app.render.attachNewNode(AmbientLight('car_ambient_light'))
+        ambient_light = self.root_node.attachNewNode(AmbientLight('car_ambient_light'))
         ambient_light.node().setColor(ambient_color)
         car_local_node.setLight(ambient_light)
-        sun_light = self.app.render.attachNewNode(PointLight('car_sun_light'))
+        sun_light = self.root_node.attachNewNode(PointLight('car_sun_light'))
         sun_light.node().setColor(sun_light_color)
         sun_light.setPos((-2506., -634., 2596.))
         car_local_node.setLight(sun_light)
@@ -218,10 +218,10 @@ class CarPanda3dEnv(Panda3dEnv):
 
 class StraightCarPanda3dEnv(CarPanda3dEnv):
     def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
-                 model_names=None, app=None, dt=None):
+                 model_names=None, root_node=None, dt=None):
         super(StraightCarPanda3dEnv, self).__init__(action_space, sensor_names=sensor_names,
                                                     camera_size=camera_size, camera_hfov=camera_hfov,
-                                                    model_names=model_names, app=app, dt=dt)
+                                                    model_names=model_names, root_node=root_node, dt=dt)
         self.dist_space = BoxSpace(0, 275 + 225)
         # minimum and maximum position of the car
         # [-51 - 6, -275, 10.7]
@@ -271,10 +271,10 @@ class StraightCarPanda3dEnv(CarPanda3dEnv):
 
 class SimpleGeometricCarPanda3dEnv(CarPanda3dEnv):
     def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
-                 model_names=None, app=None, dt=None):
+                 model_names=None, root_node=None, dt=None):
         super(SimpleGeometricCarPanda3dEnv, self).__init__(action_space, sensor_names=sensor_names,
                                                            camera_size=camera_size, camera_hfov=camera_hfov,
-                                                           model_names=model_names, app=app, dt=dt)
+                                                           model_names=model_names, root_node=root_node, dt=dt)
         self._graph_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
                                                        'urban-level-02-medium-road-directed-graph.dae')
         self._faces_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
@@ -461,10 +461,10 @@ class SimpleGeometricCarPanda3dEnv(CarPanda3dEnv):
 
 class GeometricCarPanda3dEnv(SimpleGeometricCarPanda3dEnv):
     def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
-                 model_names=None, app=None, dt=None):
+                 model_names=None, root_node=None, dt=None):
         CarPanda3dEnv.__init__(self, action_space, sensor_names=sensor_names,
                                camera_size=camera_size, camera_hfov=camera_hfov,
-                               model_names=model_names, app=app, dt=dt)
+                               model_names=model_names, root_node=root_node, dt=dt)
         self._init_or_reset_cached_properties()
         self._graph_collada_fname = os.path.expandvars('${CITYSIM3D_DIR}/models/megacity-urban-construction-kit/levels/'
                                                        'urban-level-02-medium-road-directed-graph.dae')

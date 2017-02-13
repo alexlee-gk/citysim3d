@@ -33,7 +33,7 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
         self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, lens.getNear(), -np.inf]),
                                                             np.array([np.inf, lens.getFar(), np.inf]))
         film_size = tuple(int(s) for s in lens.getFilmSize())
-        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
+        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, self.root_node, (self.skybox_node, self.city_node),
                                                           size=film_size,
                                                           near_far=(lens.getNear(), lens.getFar()),
                                                           hfov=lens.getFov())

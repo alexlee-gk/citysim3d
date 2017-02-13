@@ -19,7 +19,7 @@ class BboxSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv):
         self.use_car_dynamics = kwargs.pop('use_car_dynamics', False)
         super(BboxSimpleQuadPanda3dEnv, self).__init__(*args, **kwargs)
 
-        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, (self.skybox_node, self.city_node),
+        self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, self.root_node, (self.skybox_node, self.city_node),
                                                           size=self.camera_size,
                                                           hfov=self.camera_hfov)
         for cam in self.mask_camera_sensor.cam:

@@ -3,14 +3,13 @@ import numpy as np
 from citysim3d.envs import Panda3dEnv, GeometricCarPanda3dEnv, Panda3dCameraSensor
 from citysim3d.spaces import BoxSpace, DictSpace
 from panda3d.core import AmbientLight, PointLight
-from panda3d.core import NodePath
 
 
 class SimpleQuadPanda3dEnv(Panda3dEnv):
     def __init__(self, action_space, sensor_names=None, camera_size=None, camera_hfov=None,
                  offset=None, car_env_class=None, car_action_space=None, car_model_names=None,
-                 app=None, dt=None):
-        super(SimpleQuadPanda3dEnv, self).__init__(app=app, dt=dt)
+                 root_node=None, dt=None):
+        super(SimpleQuadPanda3dEnv, self).__init__(root_node=root_node, dt=dt)
         self._action_space = action_space
         self._sensor_names = sensor_names if sensor_names is not None else ['image']  # don't override empty list
         self._camera_size = camera_size
@@ -20,7 +19,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
         self.car_env_class = car_env_class or GeometricCarPanda3dEnv
         self.car_action_space = car_action_space or BoxSpace(np.array([0.0, 0.0]), np.array([0.0, 0.0]))
         self.car_model_names = car_model_names or ['camaro2']
-        self.car_env = self.car_env_class(self.car_action_space, sensor_names=[], model_names=self.car_model_names, app=self.app, dt=self.dt)
+        self.car_env = self.car_env_class(self.car_action_space, sensor_names=[], model_names=self.car_model_names, root_node=self.root_node, dt=self.dt)
         self.skybox_node = self.car_env.skybox_node
         self.city_node = self.car_env.city_node
         self.car_node = self.car_env.car_node
@@ -53,7 +52,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     depth = True
                 else:
                     raise ValueError('Unknown sensor name %s' % sensor_name)
-            self.camera_sensor = Panda3dCameraSensor(self.app, color=color, depth=depth, size=self.camera_size, hfov=self.camera_hfov)
+            self.camera_sensor = Panda3dCameraSensor(self.app, self.root_node, color=color, depth=depth, size=self.camera_size, hfov=self.camera_hfov)
 
             lens = self.camera_sensor.cam.node().getLens()
             film_size = tuple(int(s) for s in lens.getFilmSize())
@@ -64,7 +63,7 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
                     observation_spaces[sensor_name] = BoxSpace(lens.getNear(), lens.getFar(), shape=film_size[::-1] + (1,))
         else:
             # still create camera sensor for functions that use camera information (e.g. isInView())
-            self.camera_sensor = Panda3dCameraSensor(self.app, size=self.camera_size, hfov=self.camera_hfov)
+            self.camera_sensor = Panda3dCameraSensor(self.app, self.root_node, size=self.camera_size, hfov=self.camera_hfov)
         self.camera_node = self.camera_sensor.cam
         self.camera_node.setName('quad_camera')
         self.camera_node.reparentTo(self.quad_node)
@@ -94,15 +93,15 @@ class SimpleQuadPanda3dEnv(Panda3dEnv):
 
     def _load_quad(self):
         self.quad_node = self.app.loader.loadModel('iris')
-        self.quad_node.reparentTo(self.app.render)
+        self.quad_node.reparentTo(self.root_node)
 
         ambient_color = (.1, .1, .1, 1)
         sun_light_color = (.5, .5, .5, 1)
         self.quad_node.setLightOff()
-        ambient_light = self.app.render.attachNewNode(AmbientLight('quad_ambient_light'))
+        ambient_light = self.root_node.attachNewNode(AmbientLight('quad_ambient_light'))
         ambient_light.node().setColor(ambient_color)
         self.quad_node.setLight(ambient_light)
-        sun_light = self.app.render.attachNewNode(PointLight('quad_sun_light'))
+        sun_light = self.root_node.attachNewNode(PointLight('quad_sun_light'))
         sun_light.node().setColor(sun_light_color)
         sun_light.setPos((-2506., -634., 2596.))
         self.quad_node.setLight(sun_light)
