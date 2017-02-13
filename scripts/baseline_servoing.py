@@ -59,7 +59,7 @@ def main():
 
     if args.reset_states_fname is None:
         reset_states = [None] * args.num_trajs
-        car_model_names = None
+        car_model_names = ['camaro2', 'mazda6', 'sport', 'kia_rio_blue', 'kia_rio_red', 'kia_rio_white']
         # actions are translation and angular speed (angular velocity constraint to the (0, 0, 1) axis)
         action_space = TranslationAxisAngleSpace(low=[-20, -10, -10, -np.pi / 2],
                                                  high=[20, 10, 10, np.pi / 2],
@@ -77,19 +77,19 @@ def main():
     camera_size, camera_hfov = putil.scale_crop_camera_parameters((640, 480), 60.0, scale_size=0.5, crop_size=(128,) * 2)
     if args.env == 'transform':
         env = TransformSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
-                                            sensor_names=[] if not args.visualize else ['image'],
+                                            sensor_names=['image'] if args.visualize or args.record_file else [],
                                             use_car_dynamics=args.use_car_dynamics,
                                             camera_size=camera_size, camera_hfov=camera_hfov)
         env = SimpleQuadPanda3dServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'bbox':
         env = BboxSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
-                                       sensor_names=[] if not args.visualize else ['image'],
+                                       sensor_names=['image'] if args.visualize or args.record_file else [],
                                        use_car_dynamics=args.use_car_dynamics,
                                        camera_size=camera_size, camera_hfov=camera_hfov)
         env = SimpleQuadPanda3dServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'bbox3d':
         env = Bbox3dSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
-                                         sensor_names=[] if not args.visualize else ['image'],
+                                         sensor_names=['image'] if args.visualize or args.record_file else [],
                                          use_car_dynamics=args.use_car_dynamics,
                                          camera_size=camera_size, camera_hfov=camera_hfov)
         env = SimpleQuadPanda3dServoingEnv(env, max_time_steps=args.num_steps)
@@ -131,7 +131,7 @@ def main():
             print('=' * 45)
         obs = env.reset(reset_state)
         rewards = []
-        for step_iter in range(args.num_steps):
+        for step_iter in range(args.num_steps + 1):
             try:
                 if args.visualize or args.record_file:
                     vis_image = obs['image'].copy()  # cv2 complains if the image is used directly
@@ -190,12 +190,13 @@ def main():
                     if args.record_file:
                         video_writer.write(vis_image)
 
-                action = pol.act(obs)
+                if step_iter < args.num_steps:
+                    action = pol.act(obs)
 
-                obs, reward, episode_done, _ = env.step(action)
-                rewards.append(reward)
-                if args.verbose:
-                    print(errors_row_format.format(str((traj_iter, step_iter)), reward))
+                    obs, reward, episode_done, _ = env.step(action)
+                    rewards.append(reward)
+                    if args.verbose:
+                        print(errors_row_format.format(str((traj_iter, step_iter)), reward))
                 if done or episode_done:
                     break
             except KeyboardInterrupt:
@@ -210,6 +211,8 @@ def main():
     if args.verbose:
         print('=' * 45)
         print(errors_row_format.format('mean discounted return', np.mean(discounted_returns)))
+    else:
+        print('mean discounted return: %.4f' % np.mean(discounted_returns))
     if args.record_file:
         video_writer.release()
 
