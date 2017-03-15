@@ -1,6 +1,7 @@
-import numpy as np
 import cv2
-from citysim3d.envs import SimpleQuadPanda3dEnv, ServoingEnv, Panda3dMaskCameraSensor
+import numpy as np
+from citysim3d.envs import SimpleQuadPanda3dEnv, Panda3dMaskCameraSensor
+from citysim3d.envs.servoing_env import SimpleQuadPanda3dServoingEnv
 from citysim3d.spaces import BoxSpace
 from citysim3d.utils.panda3d_util import xy_depth_to_XYZ
 
@@ -18,7 +19,7 @@ def is_present(point_xy, mask):
     return False
 
 
-class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, ServoingEnv):
+class DesignedFeaturesSimpleQuadPanda3dServoingEnv(SimpleQuadPanda3dEnv, SimpleQuadPanda3dServoingEnv):
     def __init__(self, action_space, feature_type=None, filter_features=None,
                  max_time_steps=100, distance_threshold=4.0, **kwargs):
         """
@@ -27,18 +28,16 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
         always filtered out.
         """
         SimpleQuadPanda3dEnv.__init__(self, action_space, **kwargs)
-        ServoingEnv.__init__(self, env=self, max_time_steps=max_time_steps, distance_threshold=distance_threshold)
+        SimpleQuadPanda3dServoingEnv.__init__(self, env=self, max_time_steps=max_time_steps, distance_threshold=distance_threshold)
 
-        lens = self.camera_node.node().getLens()
-        self._observation_space.spaces['points'] = BoxSpace(np.array([-np.inf, lens.getNear(), -np.inf]),
-                                                            np.array([np.inf, lens.getFar(), np.inf]))
-        film_size = tuple(int(s) for s in lens.getFilmSize())
         self.mask_camera_sensor = Panda3dMaskCameraSensor(self.app, self.root_node, (self.skybox_node, self.city_node),
-                                                          size=film_size,
-                                                          near_far=(lens.getNear(), lens.getFar()),
-                                                          hfov=lens.getFov())
+                                                          size=self.camera_size,
+                                                          hfov=self.camera_hfov)
         for cam in self.mask_camera_sensor.cam:
             cam.reparentTo(self.camera_sensor.cam)
+        lens = self.mask_camera_sensor.cam[0].node().getLens()
+        self._observation_space.spaces['points'] = BoxSpace(np.array([[-np.inf, lens.getNear(), -np.inf]]),
+                                                            np.array([[np.inf, lens.getFar(), np.inf]]))  # the number of feature points is not known in advance
 
         self.filter_features = True if filter_features is None else False
         self._feature_type = feature_type or 'sift'
@@ -53,7 +52,7 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
             SURF_create = cv2.SURF
             ORB_create = cv2.ORB
         if self.feature_type == 'sift':
-            self._feature_extractor = SIFT_create()
+            self._feature_extractor = SIFT_create(contrastThreshold=0.035)  # the default of 0.04 doesn't produce enough features
         elif self.feature_type == 'surf':
             self._feature_extractor = SURF_create()
         elif self.feature_type == 'orb':
@@ -79,13 +78,19 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
     def target_descriptors(self):
         return self._target_descriptors
 
-    def _step(self, action):
+    def step(self, action):
         obs, reward, done, info = SimpleQuadPanda3dEnv.step(self, action)
         done = done or obs.get('points') is None
+        if reward is None:
+            self._t += 1
+            done = done or \
+                self._t >= self.max_time_steps or \
+                not self.is_in_view() or \
+                np.linalg.norm(self.get_relative_target_position()) < self.distance_threshold
+            reward = - self.get_single_cost()
+            if done:
+                reward *= self.max_time_steps - self._t + 1
         return obs, reward, done, info
-
-    def step(self, action):
-        return ServoingEnv.step(self, action)
 
     def reset(self, state=None):
         self._target_key_points = None
@@ -93,21 +98,37 @@ class ServoingDesignedFeaturesSimpleQuadPanda3dEnv(SimpleQuadPanda3dEnv, Servoin
         self._target_obs = None
         self._target_pos = self.get_relative_target_position()
         self._t = 0
-        return SimpleQuadPanda3dEnv.reset(self, state=state)
+        obs = SimpleQuadPanda3dEnv.reset(self, state=state)
+        return obs
+
+    def _detect_and_compute(self, image, mask):
+        key_points, descriptors = self._feature_extractor.detectAndCompute(image, mask)
+        if not key_points:
+            # it seems that detectAndCompute returns less features than it
+            # should, so get all the features, and then filter them
+            key_points, descriptors = self._feature_extractor.detectAndCompute(image, None)
+            if key_points:  # there are no features in the unmasked image
+                key_points_descriptors = [key_point_descriptor for key_point_descriptor in zip(key_points, descriptors)
+                                          if is_present(key_point_descriptor[0].pt, mask)]
+                if key_points_descriptors:
+                    key_points, descriptors = zip(*key_points_descriptors)
+                    key_points = list(key_points)
+                    descriptors = np.asarray(descriptors)
+                else:  # all features got filtered
+                    key_points = []
+                    descriptors = None
+        return key_points, descriptors
 
     def observe(self):
         obs = SimpleQuadPanda3dEnv.observe(self)
-        assert isinstance(obs, dict)
 
         mask, depth_image, _ = self.mask_camera_sensor.observe()  # used to filter out key points
         if self._target_obs is None:
             self._target_obs = {'target_' + k: v for (k, v) in obs.items()}
-            self._target_key_points, self._target_descriptors = \
-                self._feature_extractor.detectAndCompute(self._target_obs['target_image'], mask)
+            self._target_key_points, self._target_descriptors = self._detect_and_compute(self._target_obs['target_image'], mask)
 
         if self._target_key_points:
-            key_points, descriptors = \
-                self._feature_extractor.detectAndCompute(obs['image'], mask if self.filter_features else None)
+            key_points, descriptors = self._detect_and_compute(obs['image'], mask if self.filter_features else None)
             matches = self._matcher.match(descriptors, self._target_descriptors)
         else:
             matches = False

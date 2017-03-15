@@ -124,13 +124,22 @@ class CarPanda3dEnv(Panda3dEnv):
         car_local_node.setPos(tuple(car_local_pos))
 
         # cars need lights that are different from the scene lights
-        if model_name in ('camaro2', 'sport'):
+        if model_name in ('camaro2', 'sport', 'volkswagen_touareg', 'taxi'):
             ambient_color = (.1, .1, .1, 1)
             sun_light_color = (.8, .8, .8, 1)
-        elif model_name == 'mazda6':
+        elif model_name in ('chevrolet_camaro',):
+            ambient_color = (.01, .01, .01, 1)
+            sun_light_color = (.6, .6, .6, 1)
+        elif model_name in ('audi_a4', 'saturn', 'golf5', 'bmw850i',
+                            'car_n120708', 'nissan_gt_r_nismo',
+                            'lamborghini_aventador', 'mini_cooper_red',
+                            'porsche_cayenne'):
+            ambient_color = (.1, .1, .1, 1)
+            sun_light_color = (.9, .9, .9, 1)
+        elif model_name in ('mazda6', 'mercedes_s_class'):
             ambient_color = (.1, .1, .1, 1)
             sun_light_color = (1, 1, 1, 1)
-        elif model_name == 'mitsubishi_lancer_evo':
+        elif model_name in ('mitsubishi_lancer_evo',):
             ambient_color = (.2, .2, .2, 1)
             sun_light_color = (1, 1, 1, 1)
         else:

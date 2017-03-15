@@ -5,7 +5,7 @@ import citysim3d.utils.panda3d_util as putil
 import cv2
 import numpy as np
 from citysim3d.envs import SimpleQuadPanda3dServoingEnv
-from citysim3d.envs import TransformSimpleQuadPanda3dEnv, BboxSimpleQuadPanda3dEnv, Bbox3dSimpleQuadPanda3dEnv, ServoingDesignedFeaturesSimpleQuadPanda3dEnv
+from citysim3d.envs import TransformSimpleQuadPanda3dEnv, BboxSimpleQuadPanda3dEnv, CcotBboxSimpleQuadPanda3dEnv, Bbox3dSimpleQuadPanda3dEnv, DesignedFeaturesSimpleQuadPanda3dServoingEnv
 from citysim3d.policies import PositionBasedServoingPolicy, ImageBasedServoingPolicy, Point3dBasedServoingPolicy
 from citysim3d.spaces import TranslationAxisAngleSpace
 from citysim3d.utils import transformations as tf
@@ -17,7 +17,7 @@ loadPrcFile(os.path.expandvars('${CITYSIM3D_DIR}/config.prc'))
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('env', type=str, choices=('transform', 'bbox', 'bbox3d', 'designed'))
+    parser.add_argument('env', type=str, choices=('transform', 'bbox', 'ccot', 'bbox3d', 'designed'))
     parser.add_argument('--feature_type', type=str, choices=('sift', 'surf', 'orb'), help='[default=sift] (only valid for env=designed)')
     parser.add_argument('--filter_features', type=int, help='[default=1] whether to filter out key points that are not on the object in the current image (only valid for env=designed)')
     parser.add_argument('--use_3d_pol', action='store_true', help='use policy that minimizes the error of 3d points (as opposed to projected 2d points)')
@@ -35,6 +35,7 @@ def main():
     parser.add_argument('--gamma', type=float, default=0.9)
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--output_fname', '-o', type=str)
+    parser.add_argument('--tracking_fname', type=str, help='output file name of ground truth bounding boxes (used for 3rd party visual tracking algorithms)')
     args = parser.parse_args()
 
     # check parsing
@@ -61,8 +62,8 @@ def main():
         reset_states = [None] * args.num_trajs
         car_model_names = ['camaro2', 'mazda6', 'sport', 'kia_rio_blue', 'kia_rio_red', 'kia_rio_white']
         # actions are translation and angular speed (angular velocity constraint to the (0, 0, 1) axis)
-        action_space = TranslationAxisAngleSpace(low=[-20, -10, -10, -np.pi / 2],
-                                                 high=[20, 10, 10, np.pi / 2],
+        action_space = TranslationAxisAngleSpace(low=[-10, -10, -10, -np.pi / 2],
+                                                 high=[10, 10, 10, np.pi / 2],
                                                  axis=[0, 0, 1])
     else:
         import yaml
@@ -77,29 +78,33 @@ def main():
     camera_size, camera_hfov = putil.scale_crop_camera_parameters((640, 480), 60.0, scale_size=0.5, crop_size=(128,) * 2)
     if args.env == 'transform':
         env = TransformSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
-                                            sensor_names=['image'] if args.visualize or args.record_file else [],
+                                            sensor_names=['image'] if args.visualize or args.record_file or args.tracking_fname else [],
                                             use_car_dynamics=args.use_car_dynamics,
                                             camera_size=camera_size, camera_hfov=camera_hfov)
         env = SimpleQuadPanda3dServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'bbox':
         env = BboxSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
-                                       sensor_names=['image'] if args.visualize or args.record_file else [],
+                                       sensor_names=['image'] if args.visualize or args.record_file or args.tracking_fname else [],
                                        use_car_dynamics=args.use_car_dynamics,
                                        camera_size=camera_size, camera_hfov=camera_hfov)
         env = SimpleQuadPanda3dServoingEnv(env, max_time_steps=args.num_steps)
+    elif args.env == 'ccot':
+        env = CcotBboxSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
+                                           use_car_dynamics=args.use_car_dynamics,
+                                           camera_size=camera_size, camera_hfov=camera_hfov)
+        env = SimpleQuadPanda3dServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'bbox3d':
         env = Bbox3dSimpleQuadPanda3dEnv(action_space, car_model_names=car_model_names,
-                                         sensor_names=['image'] if args.visualize or args.record_file else [],
+                                         sensor_names=['image'] if args.visualize or args.record_file or args.tracking_fname else [],
                                          use_car_dynamics=args.use_car_dynamics,
                                          camera_size=camera_size, camera_hfov=camera_hfov)
         env = SimpleQuadPanda3dServoingEnv(env, max_time_steps=args.num_steps)
     elif args.env == 'designed':
-        env = ServoingDesignedFeaturesSimpleQuadPanda3dEnv(action_space,
+        env = DesignedFeaturesSimpleQuadPanda3dServoingEnv(action_space,
                                                            feature_type=args.feature_type,
                                                            filter_features=args.filter_features,
                                                            max_time_steps=args.num_steps,
                                                            car_model_names=car_model_names,
-                                                           use_car_dynamics=args.use_car_dynamics,
                                                            camera_size=camera_size, camera_hfov=camera_hfov)
     else:
         raise ValueError('Invalid environment option %s' % args.env)
@@ -120,7 +125,10 @@ def main():
         print(errors_header_format.format('(traj_iter, step_iter)', 'reward'))
     if args.record_file:
         fourcc = cv2.VideoWriter_fourcc(*'X264')
-        video_writer = cv2.VideoWriter(args.record_file, fourcc, 1.0 / env.dt, env.observation_space.spaces['image'].shape[:2])
+        vis_image_height, vis_image_width = env.observation_space.spaces['image'].shape[:2]
+        if args.visualize > 1:
+            vis_image_height *= 2
+        video_writer = cv2.VideoWriter(args.record_file, fourcc, 1.0 / env.dt, (vis_image_width, vis_image_height))
     done = False
     discounted_returns = []
     for traj_iter, reset_state in zip(range(args.num_trajs), reset_states):  # whichever is shorter
@@ -129,6 +137,12 @@ def main():
         np.random.seed(traj_iter)
         if args.verbose:
             print('=' * 45)
+        if args.tracking_fname:
+            if not os.path.exists(args.tracking_fname):
+                os.makedirs(args.tracking_fname)
+            os.makedirs(os.path.join(args.tracking_fname, 'seq%04d' % traj_iter, 'img'))
+            gt_bbox_fname = os.path.join(args.tracking_fname, 'seq%04d' % traj_iter, 'groundtruth_rect.txt')
+            gt_bbox_file = open(gt_bbox_fname, 'w')
         obs = env.reset(reset_state)
         rewards = []
         for step_iter in range(args.num_steps + 1):
@@ -159,7 +173,7 @@ def main():
                         points_2d = putil.project(env.camera_sensor.lens, obs['points'])
                         points_xy = putil.points2d_to_xy(env.camera_sensor.lens, points_2d)
 
-                        if args.env == 'bbox':
+                        if args.env in ('bbox', 'ccot'):
                             bbox_min = points_xy[0]
                             bbox_max = points_xy[-1]
                             cv2.rectangle(vis_image, tuple(bbox_min), tuple(bbox_max), (0, 255, 0), 1)
@@ -170,8 +184,8 @@ def main():
                             offset_xy = np.array([0, vis_image.shape[0]])
                             vis_image = np.vstack([vis_image, obs['target_image']])
                             for point_xy, target_point_xy in zip(points_xy, target_points_xy):
-                                cv2.circle(vis_image, tuple(target_point_xy + offset_xy), 4, (0, 255, 0), 1)
-                                cv2.line(vis_image, tuple(point_xy), tuple(target_point_xy + offset_xy), (0, 0, 255), 1)
+                                cv2.circle(vis_image, tuple(target_point_xy + offset_xy), 4, (0, 0, 255), 1)
+                                cv2.line(vis_image, tuple(point_xy), tuple(target_point_xy + offset_xy), (0, 255, 0), 1)
                         else:
                             for target_point_xy in target_points_xy:
                                 cv2.circle(vis_image, tuple(target_point_xy), 4, (0, 0, 255), 1)
@@ -190,6 +204,19 @@ def main():
                     if args.record_file:
                         video_writer.write(vis_image)
 
+                if args.tracking_fname:
+                    image = obs['image'].copy()
+                    image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                    image_fname = os.path.join(args.tracking_fname, 'seq%04d' % traj_iter, 'img', '%04d.jpg' % step_iter)
+                    cv2.imwrite(image_fname, image)
+                    points_2d = putil.project(env.camera_sensor.lens, obs['points'])
+                    points_xy = putil.points2d_to_xy(env.camera_sensor.lens, points_2d)
+                    bbox_min = points_xy[0]
+                    bbox_max = points_xy[-1]
+                    left, top = bbox_min
+                    width, height = bbox_max - bbox_min
+                    gt_bbox_file.write('{:<3d} {:<3d} {:<3d} {:<3d}\n'.format(left, top, width, height))
+
                 if step_iter < args.num_steps:
                     action = pol.act(obs)
 
@@ -206,6 +233,8 @@ def main():
             print('-' * 45)
             print(errors_row_format.format('discounted return', discounted_return))
         discounted_returns.append(discounted_return)
+        if args.tracking_fname:
+            gt_bbox_file.close()
         if done:
             break
     if args.verbose:
@@ -218,7 +247,7 @@ def main():
 
     if args.output_fname:
         import csv
-        with open(args.output_fname, 'ab') as csvfile:
+        with open(args.output_fname, 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter='\t', quotechar='|', quoting=csv.QUOTE_MINIMAL)
             writer.writerow([str(args.lambda_),
                              str(np.mean(discounted_returns)),

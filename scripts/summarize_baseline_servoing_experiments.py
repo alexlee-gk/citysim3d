@@ -11,9 +11,9 @@ def main():
     parser.add_argument('--plot', type=int, default=1)
     args = parser.parse_args()
 
-    errors_row_format = '{:>30}{:>15.3f}{:>15.3f}{:>15.3f}'
+    errors_row_format = '{:>30}{:>15.2f}{:>15.4f}{:>15.4f}'
     for csv_fname in args.csv_fnames:
-        with open(csv_fname, 'rb') as csvfile:
+        with open(csv_fname, 'r') as csvfile:
             reader = csv.reader(csvfile, delimiter='\t', quotechar='|')
             lambdas = []
             costs = []
