@@ -1,15 +1,9 @@
 # CitySim3D
-Simulated environments that can be used to test reinforcement learning problems involving vision.
+Simulated car following benchmark proposed in the paper <a href="https://arxiv.org/abs/1703.11000" target="_blank">Learning Visual Servoing with Deep Features and Fitted Q-Iteration</a>.
+The environments included in this project serve as a benchmark to test reinforcement learning algorithms that can scale with visual observations (e.g. RGB or depth images).
+The environments follow the same interface as the environments in <a href="https://gym.openai.com" target="_blank">OpenAI Gym</a>.
 
-There are two main environments, both in an urban setting:
-- Car environment: the action space consists of forward acceleration and lateral velocity (parameterized with respect to the road)
-- Quadcopter environment: the action space consists of linear velocity and angular velocity
-
-Currently, neither of these use realistic physics. For better physics simulation, you can implement your own dynamics or use Panda3D's python bindings to Bullet Physics.
-
-You can get RGB and depth images from the agent's camera.
-
-This simulator was used in the paper <a href="https://openreview.net/forum?id=r1YNw6sxg" target="_blank">Learning Visual Servoing with Deep Features and Fitted Q-Iteration</a>.
+This project also implements classical image-based and position-based visual servoing methods that are compared to in the paper.
 
 ![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_top.gif)
 ![Alt Text](http://rll.berkeley.edu/citysim3d/screenshot_back.gif)
